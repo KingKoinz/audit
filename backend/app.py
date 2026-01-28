@@ -42,15 +42,16 @@ async def _startup():
 async def daily_predictions_update():
     """
     Check both Powerball and Mega Millions for new draws.
-    Update hot/cold/overdue numbers and validate past predictions.
+    1. Validate any unvalidated past predictions against actual results
+    2. Create new prediction snapshot for the NEXT upcoming draw
     Runs on startup - designed to catch up even if app was down for days.
     """
     from backend.research_journal import (
         classify_numbers_hot_cold_overdue,
         save_prediction_snapshot,
         validate_prediction,
-        get_recent_predictions
     )
+    from backend.schedule import get_next_draw_time
     from backend.audit import RANGES
     import sqlite3
     from pathlib import Path
@@ -70,55 +71,77 @@ async def daily_predictions_update():
             # Sort by date descending to get most recent first
             all_draws_sorted = sorted(all_draws, key=lambda x: x.get("draw_date", ""), reverse=True)
 
-            # Get the latest draw
-            latest_draw = all_draws_sorted[0]  # Most recent
-            latest_date = latest_draw.get("draw_date", "")  # Key is draw_date, not date
-            latest_numbers = latest_draw.get("numbers", [])
+            # Build a dict of draw results by date for quick lookup
+            draws_by_date = {d.get("draw_date", ""): d.get("numbers", []) for d in all_draws_sorted}
 
-            print(f"[DAILY-UPDATE] {feed_key.upper()}: Latest draw {latest_date}")
+            print(f"[DAILY-UPDATE] {feed_key.upper()}: Latest draw in DB is {all_draws_sorted[0].get('draw_date', 'unknown')}")
 
-            # Check if we already have a snapshot for this draw
             conn = sqlite3.connect(str(db_path))
             c = conn.cursor()
 
-            # Check for existing snapshot for today's draw
+            # STEP 1: Validate any unvalidated past predictions
             c.execute("""
-                SELECT id, validated FROM prediction_snapshots
-                WHERE feed_key = ? AND draw_date LIKE ?
-                ORDER BY created_at DESC LIMIT 1
-            """, (feed_key, f"{latest_date}%"))
-            existing = c.fetchone()
+                SELECT id, draw_date FROM prediction_snapshots
+                WHERE feed_key = ? AND validated = 0
+                ORDER BY draw_date ASC
+            """, (feed_key,))
+            unvalidated = c.fetchall()
 
-            if existing:
-                snapshot_id, validated = existing
-                # Validate if not already validated
-                if not validated and latest_numbers:
-                    print(f"[DAILY-UPDATE] Validating prediction for {feed_key} draw {latest_date}")
-                    result = validate_prediction(feed_key, latest_date, latest_numbers)
+            for snapshot_id, snapshot_draw_date in unvalidated:
+                # Check if we have actual draw results for this date
+                # Match by date prefix (YYYY-MM-DD)
+                date_prefix = snapshot_draw_date[:10] if snapshot_draw_date else ""
+                actual_numbers = None
+
+                for draw_date, numbers in draws_by_date.items():
+                    if draw_date.startswith(date_prefix):
+                        actual_numbers = numbers
+                        break
+
+                if actual_numbers:
+                    print(f"[DAILY-UPDATE] Validating snapshot {snapshot_id} for {feed_key} draw {date_prefix}")
+                    result = validate_prediction(feed_key, date_prefix, actual_numbers)
                     if result.get("status") == "validated":
-                        print(f"[DAILY-UPDATE] Validated: hot_hits={result['hot_hits']}, cold_hits={result['cold_hits']}, overdue_hits={result['overdue_hits']}")
-            else:
-                # Create new snapshot with current hot/cold/overdue
-                max_num = RANGES[feed_key]["main_max"]
-                classifications = classify_numbers_hot_cold_overdue(all_draws_sorted, max_num, lookback=30)
+                        print(f"[DAILY-UPDATE] Validated: hot={result['hot_hits']}/{result['hot_in_pool']}, cold={result['cold_hits']}/{result['cold_in_pool']}, overdue={result['overdue_hits']}/{result['overdue_in_pool']}")
+                    else:
+                        print(f"[DAILY-UPDATE] Validation result: {result}")
 
-                # Use today's date for the snapshot
-                today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-                snapshot_id = save_prediction_snapshot(
-                    feed_key=feed_key,
-                    draw_date=today,
-                    hot_numbers=classifications["hot"],
-                    cold_numbers=classifications["cold"],
-                    overdue_numbers=classifications["overdue"],
-                    lookback_window=30
-                )
-                print(f"[DAILY-UPDATE] Created snapshot {snapshot_id} for {feed_key}")
-                print(f"[DAILY-UPDATE] Hot: {classifications['hot'][:5]}... Cold: {classifications['cold'][:5]}... Overdue: {classifications['overdue'][:5]}...")
+            # STEP 2: Create new snapshot for NEXT upcoming draw
+            next_draw_info = get_next_draw_time(feed_key)
+            next_draw_date = next_draw_info.get("next_draw_utc", "")[:10]  # Get YYYY-MM-DD
+
+            if next_draw_date:
+                # Check if we already have a snapshot for this upcoming draw
+                c.execute("""
+                    SELECT id FROM prediction_snapshots
+                    WHERE feed_key = ? AND draw_date LIKE ?
+                """, (feed_key, f"{next_draw_date}%"))
+                existing = c.fetchone()
+
+                if not existing:
+                    # Create new snapshot with current hot/cold/overdue
+                    max_num = RANGES[feed_key]["main_max"]
+                    classifications = classify_numbers_hot_cold_overdue(all_draws_sorted, max_num, lookback=30)
+
+                    snapshot_id = save_prediction_snapshot(
+                        feed_key=feed_key,
+                        draw_date=next_draw_date,
+                        hot_numbers=classifications["hot"],
+                        cold_numbers=classifications["cold"],
+                        overdue_numbers=classifications["overdue"],
+                        lookback_window=30
+                    )
+                    print(f"[DAILY-UPDATE] Created snapshot {snapshot_id} for {feed_key} next draw {next_draw_date}")
+                    print(f"[DAILY-UPDATE] Hot: {classifications['hot'][:5]}... Cold: {classifications['cold'][:5]}... Overdue: {classifications['overdue'][:5]}...")
+                else:
+                    print(f"[DAILY-UPDATE] Snapshot already exists for {feed_key} draw {next_draw_date}")
 
             conn.close()
 
         except Exception as e:
+            import traceback
             print(f"[DAILY-UPDATE] Error for {feed_key}: {e}")
+            traceback.print_exc()
 
     print("[DAILY-UPDATE] Complete for all feeds")
 
