@@ -2,9 +2,14 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Tuple
 from datetime import datetime
-from data_sources import FEEDS, fetch_socrata_draws
-from parse import parse_winning_numbers_field
-from db import init_db, upsert_draws
+try:
+    from backend.data_sources import FEEDS, fetch_socrata_draws
+    from backend.parse import parse_winning_numbers_field
+    from backend.db import init_db, upsert_draws
+except ImportError:
+    from data_sources import FEEDS, fetch_socrata_draws
+    from parse import parse_winning_numbers_field
+    from db import init_db, upsert_draws
 
 def normalize_date(s: str) -> str:
     # Socrata often returns ISO strings. We'll store ISO date-only where possible.

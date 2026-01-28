@@ -36,7 +36,20 @@ async def _startup():
         print("[STARTUP] Database has existing data. Skipping auto-ingestion.")
 
     # Daily auto-update: Check and update hot/cold/overdue for both games
-    await daily_predictions_update()
+    try:
+        print("[STARTUP] Running daily predictions update...")
+        import sys
+        sys.stdout.flush()
+        sys.stderr.flush()
+        await daily_predictions_update()
+        print("[STARTUP] Daily predictions update complete!")
+        sys.stdout.flush()
+    except Exception as e:
+        import traceback
+        print(f"[STARTUP] Daily predictions update error: {e}")
+        traceback.print_exc()
+        sys.stdout.flush()
+        sys.stderr.flush()
 
 
 async def daily_predictions_update():
@@ -56,6 +69,7 @@ async def daily_predictions_update():
     import sqlite3
     from pathlib import Path
     from datetime import datetime, timezone
+    import sys
 
     feeds = ["powerball", "megamillions"]
     db_path = Path("./data/research_journal.sqlite")
@@ -66,6 +80,7 @@ async def daily_predictions_update():
             all_draws = get_all_draws(feed_key)
             if not all_draws:
                 print(f"[DAILY-UPDATE] No draws found for {feed_key}")
+                sys.stdout.flush()
                 continue
 
             # Sort by date descending to get most recent first
@@ -75,6 +90,7 @@ async def daily_predictions_update():
             draws_by_date = {d.get("draw_date", ""): d.get("numbers", []) for d in all_draws_sorted}
 
             print(f"[DAILY-UPDATE] {feed_key.upper()}: Latest draw in DB is {all_draws_sorted[0].get('draw_date', 'unknown')}")
+            sys.stdout.flush()
 
             conn = sqlite3.connect(str(db_path))
             c = conn.cursor()
@@ -100,15 +116,17 @@ async def daily_predictions_update():
 
                 if actual_numbers:
                     print(f"[DAILY-UPDATE] Validating snapshot {snapshot_id} for {feed_key} draw {date_prefix}")
+                    sys.stdout.flush()
                     result = validate_prediction(feed_key, date_prefix, actual_numbers)
                     if result.get("status") == "validated":
                         print(f"[DAILY-UPDATE] Validated: hot={result['hot_hits']}/{result['hot_in_pool']}, cold={result['cold_hits']}/{result['cold_in_pool']}, overdue={result['overdue_hits']}/{result['overdue_in_pool']}")
                     else:
                         print(f"[DAILY-UPDATE] Validation result: {result}")
+                    sys.stdout.flush()
 
             # STEP 2: Create new snapshot for NEXT upcoming draw
             next_draw_info = get_next_draw_time(feed_key)
-            next_draw_date = next_draw_info.get("next_draw_utc", "")[:10]  # Get YYYY-MM-DD
+            next_draw_date = next_draw_info.get("next_date", "")  # Get YYYY-MM-DD
 
             if next_draw_date:
                 # Check if we already have a snapshot for this upcoming draw
@@ -133,8 +151,10 @@ async def daily_predictions_update():
                     )
                     print(f"[DAILY-UPDATE] Created snapshot {snapshot_id} for {feed_key} next draw {next_draw_date}")
                     print(f"[DAILY-UPDATE] Hot: {classifications['hot'][:5]}... Cold: {classifications['cold'][:5]}... Overdue: {classifications['overdue'][:5]}...")
+                    sys.stdout.flush()
                 else:
                     print(f"[DAILY-UPDATE] Snapshot already exists for {feed_key} draw {next_draw_date}")
+                    sys.stdout.flush()
 
             conn.close()
 
@@ -142,8 +162,12 @@ async def daily_predictions_update():
             import traceback
             print(f"[DAILY-UPDATE] Error for {feed_key}: {e}")
             traceback.print_exc()
+            sys.stdout.flush()
+            sys.stderr.flush()
 
     print("[DAILY-UPDATE] Complete for all feeds")
+    sys.stdout.flush()
+    sys.stderr.flush()
 
 @app.get("/", response_class=HTMLResponse)
 def home():

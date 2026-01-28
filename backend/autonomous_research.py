@@ -311,10 +311,24 @@ def run_autonomous_research(feed_key: str) -> Dict[str, Any]:
     draws = get_all_draws(feed_key)
     total_draws = len(draws)
 
-
+    # VERIFICATION MODE: Test on more recent data window to verify persistence
+    draws_window = draws
+    if in_pursuit_mode and pursuit.get("created_at"):
+        # Test on draws AFTER pursuit started (independent verification set)
+        from datetime import datetime, timedelta
+        pursuit_start = datetime.fromisoformat(pursuit["created_at"].replace('Z', '+00:00'))
+        # Get draws from the last 20 days (more recent than when pursuit started)
+        recent_cutoff = pursuit_start + timedelta(days=5)
+        recent_draws = [d for d in draws if d.get("draw_date", "") >= recent_cutoff.strftime("%Y-%m-%d")]
+        if recent_draws:
+            draws_window = recent_draws
+            print(f"[VERIFICATION] Testing on {len(draws_window)} recent draws (pursuit started {pursuit['created_at']})")
+        else:
+            # Fall back to recent 50 draws if no new ones yet
+            draws_window = draws[-50:] if len(draws) > 50 else draws
+            print(f"[VERIFICATION] No draws since pursuit start, testing on last {len(draws_window)} draws")
 
     # Restore original logic: use all draws for each test, let pattern/hypothesis selection be random/AI-driven as before
-    draws_window = draws
 
     # === PARTIAL WIN PATTERN ANALYSIS (3+, 4+, 5+ matches) ===
     def count_partial_wins(candidate_numbers, all_draws, min_match=3):
@@ -417,7 +431,20 @@ If you investigate one of these, design an appropriate test to answer the questi
     else:
         pursuit_instructions = "**EXPLORATION MODE:** You are free to test any creative pattern hypothesis."
 
-    prompt = f"""You are an autonomous statistical research agent analyzing {feed_key.upper()} lottery data.
+    # In pursuit mode, we don't ask Claude to generate - we use the original pattern and test on different data
+    if in_pursuit_mode:
+        # Force exact re-test of original pattern
+        hypothesis_data = {
+            "hypothesis": pursuit['target_hypothesis'],
+            "test_method": pursuit['target_test_method'],
+            "parameters": json.loads(pursuit['target_parameters']) if isinstance(pursuit['target_parameters'], str) else pursuit['target_parameters'],
+            "reasoning": f"Verification attempt {pursuit['pursuit_attempts'] + 1}/5: Re-testing original pattern on independent data window",
+            "creativity_score": 5  # Not creative, just rigorous
+        }
+        # Skip Claude generation entirely in pursuit mode - go straight to testing
+        ai_response = json.dumps(hypothesis_data)
+    else:
+        prompt = f"""You are an autonomous statistical research agent analyzing {feed_key.upper()} lottery data.
 
 {pursuit_instructions}
 {user_avenues_section}
@@ -495,19 +522,21 @@ If you investigate one of these, design an appropriate test to answer the questi
 You are not just testing random patterns - you are PROBING FOR VULNERABILITIES in the lottery system.
 Ask yourself: "How could this system be broken? Where are the weak points?"
 
-**EXPLOIT CATEGORY 1: Equipment Bias (Physical Ball Machines)**
-- Ball weight variance: Do certain numbered balls weigh slightly more/less?
-- Position bias: Does the machine favor balls from certain positions?
-- Wear patterns: Do older, more-used balls get selected differently?
-- Temperature effects: Do draws at different times show thermal bias?
-- Serial correlation: Same ball drawn in consecutive draws (stuck mechanism?)
+**EXPLOIT CATEGORY 1: Draw Mechanics (HIGHEST YIELD)**
+- Ball wear degradation: Heavily-used balls vs. rarely-used balls - detection possible!
+- Machine mechanism wear: Mechanical arms degrade → detectible frequency shifts
+- Ball weight/condition: Older balls processed differently by mechanism
+- Temperature effects: Ambient conditions affect drawing consistency
+- Pressure/humidity: Environmental factors create measurable anomalies
+- Machine aging: Specific draw machines show degradation patterns over months/years
 
-**EXPLOIT CATEGORY 2: RNG Weaknesses (If Computer-Generated)**
-- Seed predictability: Can the RNG seed be guessed from outputs?
-- Modulo bias: Does the RNG favor certain remainders?
-- Sequence patterns: Are there detectable cycles in the output?
-- Time-based seeds: Do draws at same time-of-day correlate?
-- State leakage: Do consecutive draws reveal internal RNG state?
+**EXPLOIT CATEGORY 2: Bonus Ball Mechanics**
+- Separate drawing mechanism: Powerball/Mega Ball use DIFFERENT equipment
+- Independent bias: Bonus drawn separately = independent wear patterns
+- Pool differences: Bonus drawn from different numbered ball set (1-26 vs 1-15)
+- Mechanism variance: Bonus drawing equipment may age differently
+- Frequency anomalies: Bonus numbers show different frequency distribution
+- Correlation weakness: Bonus-main correlation reveals mechanism differences
 
 **EXPLOIT CATEGORY 3: Temporal Vulnerabilities**
 - Equipment warm-up: First draw of the day different from later draws?
@@ -523,12 +552,14 @@ Ask yourself: "How could this system be broken? Where are the weak points?"
 - Location bias: Different draw locations = different outcomes?
 - Procedure drift: Has the process changed over time?
 
-**EXPLOIT CATEGORY 5: Historical Weakness Periods**
-- Equipment transitions: Find exact dates machines were changed
-- Anomaly windows: Identify time periods where randomness degraded
-- Rule changes: Did format changes create temporary exploits?
-- Jackpot size correlation: Do large jackpots affect draw integrity?
-- External events: Did significant events correlate with anomalies?
+**EXPLOIT CATEGORY 5: Historical Transitions (DOCUMENTABLE EXPLOITS)**
+- Equipment changes: Powerball format changed 2015, 2019 - check anomalies!
+- Machine replacements: When did specific draw machines get swapped?
+- Frequency changes: Rule changes → verification windows with bias possible
+- Transition windows: New equipment typically needs calibration period (2-4 weeks)
+- Before/after analysis: Compare draw patterns across documented change dates
+- Jackpot level changes: Different draw frequency → different wear patterns
+- Public records: Illinois Lottery publishes official equipment/rule changes
 
 **YOUR ADVERSARIAL MISSION:**
 Think like a penetration tester. Don't just test if patterns exist - test if the SYSTEM HAS FLAWS.
@@ -595,10 +626,9 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
             'positional': ['first', 'last', 'position', 'slot', 'order', 'positional', 'index'],
             'statistical': ['correlation', 'autocorrelation', 'recency', 'streak', 'runs', 'markov', 'entropy', 'frequency', 'distribution'],
             'structural': ['sum', 'range', 'even', 'odd', 'consecutive', 'cluster', 'pair', 'triplet', 'gap', 'spacing'],
-            'exploit_equipment': ['ball', 'weight', 'wear', 'machine', 'mechanism', 'physical', 'temperature', 'thermal'],
-            'exploit_rng': ['rng', 'seed', 'random', 'generator', 'cycle', 'state', 'predictab'],
-            'exploit_human': ['operator', 'load', 'procedure', 'location', 'verification', 'fatigue', 'maintenance'],
-            'exploit_historical': ['transition', 'window', 'period', 'change', 'equipment change', 'rule change', 'jackpot']
+            'draw_mechanics': ['ball', 'wear', 'weight', 'degradation', 'machine', 'mechanism', 'physical', 'temperature', 'pressure', 'aging', 'replacement'],
+            'bonus_mechanics': ['bonus', 'powerball', 'mega ball', 'mega_ball', 'ball bias', 'separate pool', 'different mechanism'],
+            'historical_transitions': ['transition', 'change', 'upgrade', 'replacement', 'rule change', 'equipment change', 'jackpot level', 'period change', 'window']
         }
         new_category = None
         for cat, keywords in category_keywords.items():
@@ -645,10 +675,9 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
         'positional': ['first', 'last', 'position', 'slot', 'order', 'positional', 'index'],
         'statistical': ['correlation', 'autocorrelation', 'recency', 'streak', 'runs', 'markov', 'entropy', 'frequency', 'distribution'],
         'structural': ['sum', 'range', 'even', 'odd', 'consecutive', 'cluster', 'pair', 'triplet', 'gap', 'spacing'],
-        'exploit_equipment': ['ball', 'weight', 'wear', 'machine', 'mechanism', 'physical', 'temperature', 'thermal'],
-        'exploit_rng': ['rng', 'seed', 'random', 'generator', 'cycle', 'state', 'predictab'],
-        'exploit_human': ['operator', 'load', 'procedure', 'location', 'verification', 'fatigue', 'maintenance'],
-        'exploit_historical': ['transition', 'window', 'period', 'change', 'equipment change', 'rule change', 'jackpot']
+        'draw_mechanics': ['ball', 'wear', 'weight', 'degradation', 'machine', 'mechanism', 'physical', 'temperature', 'pressure', 'aging', 'replacement'],
+        'bonus_mechanics': ['bonus', 'powerball', 'mega ball', 'mega_ball', 'ball bias', 'separate pool', 'different mechanism'],
+        'historical_transitions': ['transition', 'change', 'upgrade', 'replacement', 'rule change', 'equipment change', 'jackpot level', 'period change', 'window']
     }
     recent_categories = []
     for h in history[-5:]:
@@ -667,6 +696,11 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
     # --- AI GENERATION LOOP: retry up to 5 times for uniqueness ---
     max_retries = 5
     for attempt in range(max_retries):
+        # In pursuit mode, skip Claude - use original hypothesis set above
+        if in_pursuit_mode:
+            ai_response = json.dumps(hypothesis_data)
+            break  # Only one attempt needed - exact re-test
+
         # Build context summary for Claude (must be inside loop for freshness)
         history_summary = "\n".join([
             f"- Iteration {h['iteration']}: [{h.get('test_method', '?')}] {h['hypothesis'][:50]}... → p={h['p_value']:.4f}, viable={h['viable']}"
@@ -828,70 +862,73 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
 
 Propose your next hypothesis NOW with your chosen interval. Be autonomous and CREATIVE!"""
 
-        # Increase temperature on retries to get more variety
-        temp = 0.7 + (attempt * 0.2)  # 0.7, 0.9, 1.1 on retries
-        message = client.messages.create(
-            model="claude-3-haiku-20240307",
-            max_tokens=500,
-            temperature=min(temp, 1.0),  # Cap at 1.0
-            messages=[{"role": "user", "content": prompt}]
-        )
-        ai_response = message.content[0].text.strip()
-        try:
-            hypothesis_data = json.loads(ai_response)
-        except Exception:
-            continue  # Retry if JSON parse fails
-        new_hypothesis = hypothesis_data.get('hypothesis', '')
-        new_reasoning = hypothesis_data.get('reasoning', '')
-        new_method = hypothesis_data.get('test_method', 'custom')
-        if is_unique_hypothesis_reasoning(new_hypothesis, new_reasoning, new_method, history, overused_methods):
-            break  # Accept this response
-        if attempt == max_retries - 1:
-            # FORCE ROTATION: If AI is stuck, pick a random underused method
-            import random
-            if underused_methods:
-                forced_method = random.choice(underused_methods)
-                # Generate appropriate parameters for the forced method
-                forced_params = {}
-                if forced_method == 'digit_ending':
-                    forced_params = {'digit': random.randint(0, 9)}
-                    hypothesis_data['hypothesis'] = f"Testing if numbers ending in {forced_params['digit']} appear with unusual frequency"
-                elif forced_method == 'sum_range':
-                    low = random.randint(50, 150)
-                    forced_params = {'low': low, 'high': low + 50}
-                    hypothesis_data['hypothesis'] = f"Testing if draw sums cluster in range {low}-{low+50}"
-                elif forced_method == 'day_of_week_bias':
-                    forced_params = {'target_number': random.randint(1, 69), 'target_day': random.randint(0, 6)}
-                    days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-                    hypothesis_data['hypothesis'] = f"Testing if number {forced_params['target_number']} shows bias on {days[forced_params['target_day']]}"
-                elif forced_method == 'month_bias':
-                    forced_params = {'target_number': random.randint(1, 69), 'target_month': random.randint(1, 12)}
-                    hypothesis_data['hypothesis'] = f"Testing if number {forced_params['target_number']} shows bias in month {forced_params['target_month']}"
-                elif forced_method == 'positional_bias':
-                    forced_params = {'position': random.randint(0, 4)}
-                    hypothesis_data['hypothesis'] = f"Testing if position {forced_params['position']+1} favors certain numbers"
-                elif forced_method == 'temporal_persistence':
-                    forced_params = {'target_number': random.randint(1, 69), 'window_size': random.choice([15, 30, 50])}
-                    hypothesis_data['hypothesis'] = f"Testing if number {forced_params['target_number']} shows temporal persistence over {forced_params['window_size']} draws"
-                else:
-                    hypothesis_data['hypothesis'] = f"Testing pattern via {forced_method}"
+        # Skip Claude generation entirely if in pursuit mode
+        if not in_pursuit_mode:
+            # Increase temperature on retries to get more variety
+            temp = 0.7 + (attempt * 0.2)  # 0.7, 0.9, 1.1 on retries
+            message = client.messages.create(
+                model="claude-3-haiku-20240307",
+                max_tokens=500,
+                temperature=min(temp, 1.0),  # Cap at 1.0
+                messages=[{"role": "user", "content": prompt}]
+            )
+            ai_response = message.content[0].text.strip()
+            try:
+                hypothesis_data = json.loads(ai_response)
+            except Exception:
+                continue  # Retry if JSON parse fails
 
-                hypothesis_data['test_method'] = forced_method
-                hypothesis_data['parameters'] = forced_params
-                hypothesis_data['reasoning'] = f'[FORCED ROTATION] AI was stuck in a pattern. System forced switch to {forced_method} test for variety.'
-            else:
-                hypothesis_data['reasoning'] += ' [Note: AI repeated a recent pattern. Diversity warning issued.]'
+            # If we got here, we have hypothesis_data from Claude
+            new_hypothesis = hypothesis_data.get('hypothesis', '')
+            new_reasoning = hypothesis_data.get('reasoning', '')
+            new_method = hypothesis_data.get('test_method', 'custom')
 
-    # Parse Claude's response
-    try:
-        # Safely extract response text
-        if not message.content or len(message.content) == 0:
-            return {
-                "status": "error",
-                "message": "AI returned empty response"
+            # Check uniqueness
+            if not is_unique_hypothesis_reasoning(new_hypothesis, new_reasoning, new_method, history, overused_methods):
+                continue  # Retry if not unique
+        else:
+            # In pursuit mode - hypothesis_data already set
+            new_hypothesis = hypothesis_data.get('hypothesis', '')
+            new_reasoning = hypothesis_data.get('reasoning', '')
+            new_method = hypothesis_data.get('test_method', 'custom')
+
+            # Check diversity - same category repetition is NOT allowed (in exploration mode only)
+            new_hyp_lower = new_hypothesis.lower()
+            category_keywords = {
+                'number_theory': ['prime', 'fibonacci', 'square', 'palindrome', 'divisible', 'digit', 'modulo', 'multiple', 'factor'],
+                'temporal': ['day', 'week', 'month', 'year', 'season', 'time', 'weekend', 'weekday', 'temporal', 'date'],
+                'positional': ['first', 'last', 'position', 'slot', 'order', 'positional', 'index'],
+                'statistical': ['correlation', 'autocorrelation', 'recency', 'streak', 'runs', 'markov', 'entropy', 'frequency', 'distribution'],
+                'structural': ['sum', 'range', 'even', 'odd', 'consecutive', 'cluster', 'pair', 'triplet', 'gap', 'spacing']
             }
+            new_category = None
+            for cat, keywords in category_keywords.items():
+                if any(kw in new_hyp_lower for kw in keywords):
+                    new_category = cat
+                    break
 
-        response_text = message.content[0].text.strip()
+            if new_category:
+                same_cat_count = 0
+                for h in history[-3:]:  # Check last 3
+                    if not h: continue
+                    hist_lower = h.get('hypothesis', '').lower()
+                    for cat, keywords in category_keywords.items():
+                        if any(kw in hist_lower for kw in keywords):
+                            if cat == new_category:
+                                same_cat_count += 1
+                            break
+
+                # STRICT: Reject if same category appears 2+ times in last 3
+                if same_cat_count >= 2:
+                    if attempt < max_retries - 1:
+                        continue  # Retry with different category
+
+        # Accept this response
+        break
+
+    # Parse the response (ai_response works for both pursuit and non-pursuit modes)
+    try:
+        response_text = ai_response
 
         # Extract JSON from response (Claude might wrap it in markdown)
         if "```json" in response_text:
@@ -975,7 +1012,10 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
         'temporal': ['day', 'week', 'month', 'year', 'season', 'time', 'date', 'weekend', 'weekday'],
         'positional': ['first', 'last', 'position', 'slot', 'order', 'sequence', 'spread', 'range'],
         'statistical': ['correlation', 'autocorrelation', 'recency', 'streak', 'runs', 'bias', 'wear'],
-        'chaos': ['entropy', 'chaos', 'fractal', 'complexity', 'benford', 'spectral']
+        'structural': ['sum', 'range', 'even', 'odd', 'consecutive', 'cluster', 'pair', 'triplet', 'gap', 'spacing'],
+        'draw_mechanics': ['ball', 'wear', 'weight', 'degradation', 'machine', 'mechanism', 'physical', 'temperature', 'pressure', 'aging', 'replacement'],
+        'bonus_mechanics': ['bonus', 'powerball', 'mega ball', 'mega_ball', 'ball bias', 'separate pool', 'different mechanism'],
+        'historical_transitions': ['transition', 'change', 'upgrade', 'replacement', 'rule change', 'equipment change', 'jackpot level', 'period change', 'window']
     }
 
     # Detect current hypothesis category
@@ -1014,8 +1054,21 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
         diversity_score -= 2 * same_category_count  # Exponential penalty
 
     diversity_score = max(1, min(10, diversity_score))
-    
-    # Check if creativity score matches diversity (now always a warning, never blocks)
+
+    # ENFORCE DIVERSITY ONLY IN EXPLORATION MODE
+    # Skip this entirely if in pursuit/verification mode
+    if not in_pursuit_mode:
+        if same_category_count >= 3 and diversity_score <= 3:
+            # This hypothesis is too similar - reject it and force regeneration
+            return {
+                "status": "diversity_rejected",
+                "message": f"❌ DIVERSITY FILTER: Rejected low-diversity hypothesis - {same_category_count} recent tests in {current_category} category (diversity={diversity_score}/10). Forcing category switch.",
+                "hypothesis": hypothesis_data.get("hypothesis", ""),
+                "rejection_reason": f"Category repetition ({same_category_count}x {current_category}) + low diversity score ({diversity_score})",
+                "viable": False
+            }
+
+    # Check if creativity score matches diversity
     ai_creativity = hypothesis_data.get("creativity_score", 5)
     diversity_warning = ""
     category_msg = f" ({current_category} category)" if current_category else ""
@@ -1031,7 +1084,10 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
     else:
         if global_vars.get(stuck_flag_key):
             global_vars[stuck_flag_key] = False
-    if diversity_score < 3 and ai_creativity > 8:
+    # Show warnings (even if in pursuit mode, for logging)
+    if in_pursuit_mode and same_category_count >= 3:
+        diversity_warning = f"[VERIFICATION MODE] Allowing category repetition ({same_category_count}x {current_category}) to verify pattern persistence"
+    elif diversity_score < 3 and ai_creativity > 8:
         diversity_warning = f"Very low diversity (score={diversity_score}, {similar_count} similar patterns{category_msg}) but AI claims high creativity (score={ai_creativity})"
     elif diversity_score < 5 and ai_creativity > 7:
         diversity_warning = f"Moderate diversity concern (diversity={diversity_score}, creativity={ai_creativity}{category_msg})"
@@ -1074,33 +1130,33 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
         try:
             # Handle different test methods and their parameters
             if test_method == "digit_ending":
-                results = test_func(draws, parameters.get("digit", 7), feed_key)
+                results = test_func(draws_window, parameters.get("digit", 7), feed_key)
             elif test_method == "sum_range":
                 if "low" not in parameters or "high" not in parameters:
                     return {
                         "status": "error",
                         "message": "Test execution failed: Missing required parameter 'low' or 'high' for sum_range test"
                     }
-                results = test_func(draws, parameters["low"], parameters["high"])
+                results = test_func(draws_window, parameters["low"], parameters["high"])
             elif test_method == "bonus_correlation":
-                results = test_func(draws, feed_key)
+                results = test_func(draws_window, feed_key)
             elif test_method == "day_of_week_bias":
-                results = test_func(draws, parameters.get("target_number", 7), parameters.get("target_day", 0))
+                results = test_func(draws_window, parameters.get("target_number", 7), parameters.get("target_day", 0))
             elif test_method == "month_bias":
-                results = test_func(draws, parameters.get("target_number", 7), parameters.get("target_month", 1))
+                results = test_func(draws_window, parameters.get("target_number", 7), parameters.get("target_month", 1))
             elif test_method == "seasonal_bias":
-                results = test_func(draws, parameters.get("target_number", 7), parameters.get("target_season", "summer"))
+                results = test_func(draws_window, parameters.get("target_number", 7), parameters.get("target_season", "summer"))
             elif test_method == "weekend_weekday_bias":
-                results = test_func(draws, parameters.get("target_number", 7))
+                results = test_func(draws_window, parameters.get("target_number", 7))
             elif test_method == "temporal_persistence":
-                results = test_func(draws, parameters.get("target_number", 7), parameters.get("window_size", 30))
+                results = test_func(draws_window, parameters.get("target_number", 7), parameters.get("window_size", 30))
             elif test_method == "positional_bias":
-                results = test_func(draws, parameters.get("position", 0), feed_key)
+                results = test_func(draws_window, parameters.get("position", 0), feed_key)
             elif test_method == "entropy":
-                results = test_func(draws, feed_key)
+                results = test_func(draws_window, feed_key)
             else:
                 # Default: tests that only need draws
-                results = test_func(draws)
+                results = test_func(draws_window)
         except KeyError as e:
             return {
                 "status": "error",
