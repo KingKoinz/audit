@@ -487,6 +487,54 @@ If you investigate one of these, design an appropriate test to answer the questi
 - Spectral analysis (frequency domain patterns)
 - Fractal dimension of draw sequences
 
+---
+
+🔴 **EXPLOIT HUNTER MODE - THINK LIKE A SECURITY AUDITOR** 🔴
+
+You are not just testing random patterns - you are PROBING FOR VULNERABILITIES in the lottery system.
+Ask yourself: "How could this system be broken? Where are the weak points?"
+
+**EXPLOIT CATEGORY 1: Equipment Bias (Physical Ball Machines)**
+- Ball weight variance: Do certain numbered balls weigh slightly more/less?
+- Position bias: Does the machine favor balls from certain positions?
+- Wear patterns: Do older, more-used balls get selected differently?
+- Temperature effects: Do draws at different times show thermal bias?
+- Serial correlation: Same ball drawn in consecutive draws (stuck mechanism?)
+
+**EXPLOIT CATEGORY 2: RNG Weaknesses (If Computer-Generated)**
+- Seed predictability: Can the RNG seed be guessed from outputs?
+- Modulo bias: Does the RNG favor certain remainders?
+- Sequence patterns: Are there detectable cycles in the output?
+- Time-based seeds: Do draws at same time-of-day correlate?
+- State leakage: Do consecutive draws reveal internal RNG state?
+
+**EXPLOIT CATEGORY 3: Temporal Vulnerabilities**
+- Equipment warm-up: First draw of the day different from later draws?
+- Seasonal equipment behavior: Temperature/humidity affecting mechanics?
+- Maintenance windows: Patterns after equipment servicing?
+- Operator fatigue: Late-night draws different from morning draws?
+- Draw frequency: Rushed drawings vs. properly-paced ones?
+
+**EXPLOIT CATEGORY 4: Human Factor Exploits**
+- Operator patterns: Same operator = same subtle biases?
+- Ball loading sequence: Does load order affect selection?
+- Verification gaps: Patterns in unverified vs. verified draws?
+- Location bias: Different draw locations = different outcomes?
+- Procedure drift: Has the process changed over time?
+
+**EXPLOIT CATEGORY 5: Historical Weakness Periods**
+- Equipment transitions: Find exact dates machines were changed
+- Anomaly windows: Identify time periods where randomness degraded
+- Rule changes: Did format changes create temporary exploits?
+- Jackpot size correlation: Do large jackpots affect draw integrity?
+- External events: Did significant events correlate with anomalies?
+
+**YOUR ADVERSARIAL MISSION:**
+Think like a penetration tester. Don't just test if patterns exist - test if the SYSTEM HAS FLAWS.
+The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo bias on Wednesdays."
+
+---
+
 **YOUR RESEARCH HISTORY (last 20 iterations):**
 {history_summary}
 
@@ -545,7 +593,11 @@ If you investigate one of these, design an appropriate test to answer the questi
             'temporal': ['day', 'week', 'month', 'year', 'season', 'time', 'weekend', 'weekday', 'temporal', 'date'],
             'positional': ['first', 'last', 'position', 'slot', 'order', 'positional', 'index'],
             'statistical': ['correlation', 'autocorrelation', 'recency', 'streak', 'runs', 'markov', 'entropy', 'frequency', 'distribution'],
-            'structural': ['sum', 'range', 'even', 'odd', 'consecutive', 'cluster', 'pair', 'triplet', 'gap', 'spacing']
+            'structural': ['sum', 'range', 'even', 'odd', 'consecutive', 'cluster', 'pair', 'triplet', 'gap', 'spacing'],
+            'exploit_equipment': ['ball', 'weight', 'wear', 'machine', 'mechanism', 'physical', 'temperature', 'thermal'],
+            'exploit_rng': ['rng', 'seed', 'random', 'generator', 'cycle', 'state', 'predictab'],
+            'exploit_human': ['operator', 'load', 'procedure', 'location', 'verification', 'fatigue', 'maintenance'],
+            'exploit_historical': ['transition', 'window', 'period', 'change', 'equipment change', 'rule change', 'jackpot']
         }
         new_category = None
         for cat, keywords in category_keywords.items():
@@ -591,7 +643,11 @@ If you investigate one of these, design an appropriate test to answer the questi
         'temporal': ['day', 'week', 'month', 'year', 'season', 'time', 'weekend', 'weekday', 'temporal', 'date'],
         'positional': ['first', 'last', 'position', 'slot', 'order', 'positional', 'index'],
         'statistical': ['correlation', 'autocorrelation', 'recency', 'streak', 'runs', 'markov', 'entropy', 'frequency', 'distribution'],
-        'structural': ['sum', 'range', 'even', 'odd', 'consecutive', 'cluster', 'pair', 'triplet', 'gap', 'spacing']
+        'structural': ['sum', 'range', 'even', 'odd', 'consecutive', 'cluster', 'pair', 'triplet', 'gap', 'spacing'],
+        'exploit_equipment': ['ball', 'weight', 'wear', 'machine', 'mechanism', 'physical', 'temperature', 'thermal'],
+        'exploit_rng': ['rng', 'seed', 'random', 'generator', 'cycle', 'state', 'predictab'],
+        'exploit_human': ['operator', 'load', 'procedure', 'location', 'verification', 'fatigue', 'maintenance'],
+        'exploit_historical': ['transition', 'window', 'period', 'change', 'equipment change', 'rule change', 'jackpot']
     }
     recent_categories = []
     for h in history[-5:]:
