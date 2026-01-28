@@ -510,8 +510,39 @@ If you investigate one of these, design an appropriate test to answer the questi
             if h.get('ai_reasoning', '').strip() == new_reasoning.strip():
                 return False
 
-        # Allow AI to exploit methods that work - finding anomalies > scientific rigor
-        # Prompt still suggests diversity, but we don't hard-reject
+        # ENFORCE METHOD DIVERSITY - reject if method was used in last 3 iterations
+        recent_methods = [h.get('test_method', '') for h in history[-3:] if h]
+        if new_method in recent_methods:
+            return False
+
+        # ENFORCE CATEGORY DIVERSITY - reject if same category 3+ times in last 5
+        category_keywords = {
+            'number_theory': ['prime', 'fibonacci', 'square', 'palindrome', 'divisible', 'digit', 'modulo'],
+            'temporal': ['day', 'week', 'month', 'year', 'season', 'time', 'weekend', 'weekday', 'temporal'],
+            'positional': ['first', 'last', 'position', 'slot', 'order', 'positional'],
+            'statistical': ['correlation', 'autocorrelation', 'recency', 'streak', 'runs', 'markov', 'entropy'],
+            'structural': ['sum', 'range', 'even', 'odd', 'consecutive', 'cluster', 'pair', 'triplet']
+        }
+        new_category = None
+        new_hyp_lower = new_hypothesis.lower()
+        for cat, keywords in category_keywords.items():
+            if any(kw in new_hyp_lower for kw in keywords):
+                new_category = cat
+                break
+
+        if new_category:
+            same_cat_count = 0
+            for h in history[-5:]:
+                if not h: continue
+                hist_lower = h.get('hypothesis', '').lower()
+                for cat, keywords in category_keywords.items():
+                    if any(kw in hist_lower for kw in keywords):
+                        if cat == new_category:
+                            same_cat_count += 1
+                        break
+            if same_cat_count >= 3:
+                return False
+
         return True
 
     # --- Track recent test methods to enforce diversity ---
@@ -531,8 +562,30 @@ If you investigate one of these, design an appropriate test to answer the questi
                    'weekend_weekday_bias', 'temporal_persistence']
     underused_methods = [m for m in all_methods if m not in recent_methods]
 
-    # --- AI GENERATION LOOP: retry up to 3 times for uniqueness ---
-    max_retries = 3
+    # --- Detect recent categories to force rotation ---
+    category_keywords = {
+        'number_theory': ['prime', 'fibonacci', 'square', 'palindrome', 'divisible', 'digit', 'modulo'],
+        'temporal': ['day', 'week', 'month', 'year', 'season', 'time', 'weekend', 'weekday', 'temporal'],
+        'positional': ['first', 'last', 'position', 'slot', 'order', 'positional'],
+        'statistical': ['correlation', 'autocorrelation', 'recency', 'streak', 'runs', 'markov', 'entropy'],
+        'structural': ['sum', 'range', 'even', 'odd', 'consecutive', 'cluster', 'pair', 'triplet']
+    }
+    recent_categories = []
+    for h in history[-5:]:
+        if not h: continue
+        hist_lower = h.get('hypothesis', '').lower()
+        for cat, keywords in category_keywords.items():
+            if any(kw in hist_lower for kw in keywords):
+                recent_categories.append(cat)
+                break
+    # Find the dominant category
+    from collections import Counter
+    cat_counts = Counter(recent_categories)
+    stuck_category = cat_counts.most_common(1)[0][0] if cat_counts else None
+    stuck_count = cat_counts.most_common(1)[0][1] if cat_counts else 0
+
+    # --- AI GENERATION LOOP: retry up to 5 times for uniqueness ---
+    max_retries = 5
     for attempt in range(max_retries):
         # Build context summary for Claude (must be inside loop for freshness)
         history_summary = "\n".join([
@@ -544,10 +597,19 @@ If you investigate one of these, design an appropriate test to answer the questi
 
         # Build diversity instructions
         diversity_instructions = ""
+        if stuck_count >= 3:
+            all_categories = list(category_keywords.keys())
+            other_categories = [c for c in all_categories if c != stuck_category]
+            diversity_instructions += f"\n🚨 **CRITICAL: SWITCH CATEGORIES NOW!** You've been stuck in '{stuck_category}' for {stuck_count} iterations.\n"
+            diversity_instructions += f"**MANDATORY:** Use one of these categories instead: {', '.join(other_categories)}\n"
         if overused_methods:
             diversity_instructions += f"\n⚠️ **AVOID THESE OVERUSED METHODS:** {', '.join(overused_methods)} (used too often recently)\n"
         if underused_methods:
             diversity_instructions += f"\n✅ **TRY THESE UNDERUSED METHODS:** {', '.join(underused_methods[:5])} (not tested recently)\n"
+        # Add random seed to encourage variety
+        import random
+        random_seed = random.randint(1000, 9999)
+        diversity_instructions += f"\n🎲 Randomness seed: {random_seed} - Use this to inspire a novel approach!\n"
 
         # Build pursuit mode instructions if active
         if in_pursuit_mode:
@@ -686,10 +748,12 @@ If you investigate one of these, design an appropriate test to answer the questi
 
 Propose your next hypothesis NOW with your chosen interval. Be autonomous and CREATIVE!"""
 
+        # Increase temperature on retries to get more variety
+        temp = 0.7 + (attempt * 0.2)  # 0.7, 0.9, 1.1 on retries
         message = client.messages.create(
             model="claude-3-haiku-20240307",
             max_tokens=500,
-            temperature=0.7,
+            temperature=min(temp, 1.0),  # Cap at 1.0
             messages=[{"role": "user", "content": prompt}]
         )
         ai_response = message.content[0].text.strip()
@@ -703,8 +767,40 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
         if is_unique_hypothesis_reasoning(new_hypothesis, new_reasoning, new_method, history, overused_methods):
             break  # Accept this response
         if attempt == max_retries - 1:
-            # If still not unique, append a warning
-            hypothesis_data['reasoning'] += ' [Note: AI repeated a recent pattern or overused a test method. Diversity enforced.]'
+            # FORCE ROTATION: If AI is stuck, pick a random underused method
+            import random
+            if underused_methods:
+                forced_method = random.choice(underused_methods)
+                # Generate appropriate parameters for the forced method
+                forced_params = {}
+                if forced_method == 'digit_ending':
+                    forced_params = {'digit': random.randint(0, 9)}
+                    hypothesis_data['hypothesis'] = f"Testing if numbers ending in {forced_params['digit']} appear with unusual frequency"
+                elif forced_method == 'sum_range':
+                    low = random.randint(50, 150)
+                    forced_params = {'low': low, 'high': low + 50}
+                    hypothesis_data['hypothesis'] = f"Testing if draw sums cluster in range {low}-{low+50}"
+                elif forced_method == 'day_of_week_bias':
+                    forced_params = {'target_number': random.randint(1, 69), 'target_day': random.randint(0, 6)}
+                    days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+                    hypothesis_data['hypothesis'] = f"Testing if number {forced_params['target_number']} shows bias on {days[forced_params['target_day']]}"
+                elif forced_method == 'month_bias':
+                    forced_params = {'target_number': random.randint(1, 69), 'target_month': random.randint(1, 12)}
+                    hypothesis_data['hypothesis'] = f"Testing if number {forced_params['target_number']} shows bias in month {forced_params['target_month']}"
+                elif forced_method == 'positional_bias':
+                    forced_params = {'position': random.randint(0, 4)}
+                    hypothesis_data['hypothesis'] = f"Testing if position {forced_params['position']+1} favors certain numbers"
+                elif forced_method == 'temporal_persistence':
+                    forced_params = {'target_number': random.randint(1, 69), 'window_size': random.choice([15, 30, 50])}
+                    hypothesis_data['hypothesis'] = f"Testing if number {forced_params['target_number']} shows temporal persistence over {forced_params['window_size']} draws"
+                else:
+                    hypothesis_data['hypothesis'] = f"Testing pattern via {forced_method}"
+
+                hypothesis_data['test_method'] = forced_method
+                hypothesis_data['parameters'] = forced_params
+                hypothesis_data['reasoning'] = f'[FORCED ROTATION] AI was stuck in a pattern. System forced switch to {forced_method} test for variety.'
+            else:
+                hypothesis_data['reasoning'] += ' [Note: AI repeated a recent pattern. Diversity warning issued.]'
 
     # Parse Claude's response
     try:
