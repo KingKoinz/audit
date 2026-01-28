@@ -1,0 +1,165 @@
+/* DraftKings-inspired dark theme for betting page */
+body {
+  background: #181c24;
+  color: #e8ecf3;
+  font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+}
+.betting-container {
+  max-width: 700px;
+  margin: 40px auto;
+  background: #232a36;
+  border-radius: 18px;
+  padding: 32px 32px 24px 32px;
+  box-shadow: 0 8px 32px #0008;
+  border: 2px solid #2e3542;
+}
+.betting-container h2 {
+  color: #00ff88;
+  font-size: 2.1rem;
+  font-weight: 900;
+  letter-spacing: 1px;
+  margin-bottom: 18px;
+  text-shadow: 0 2px 12px #00ff8855;
+}
+.wallet-connect {
+  text-align: right;
+  margin-bottom: 18px;
+}
+.wallet-connect button {
+  background: linear-gradient(90deg, #00ff88 0%, #6496ff 100%);
+  color: #181c24;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 22px;
+  font-weight: 800;
+  font-size: 1.1rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px #00ff8840;
+  transition: background 0.2s;
+}
+.wallet-connect button:hover {
+  background: linear-gradient(90deg, #6496ff 0%, #00ff88 100%);
+}
+.betting-panel {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #1a202b;
+  padding: 18px 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px #0003;
+  flex-wrap: wrap;
+}
+.betting-panel label {
+  margin-bottom: 0;
+}
+.betting-panel input, .betting-panel select {
+  max-width: 90px;
+  min-width: 70px;
+  margin-right: 0;
+}
+.betting-panel button {
+  margin-left: 10px;
+  min-width: 120px;
+}
+.betting-panel label {
+  font-size: 1.05rem;
+  color: #b9ffcc;
+  font-weight: 600;
+}
+.betting-panel input, .betting-panel select {
+  padding: 7px 12px;
+  border-radius: 7px;
+  border: 1.5px solid #00ff88;
+  background: #232a36;
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 600;
+  outline: none;
+  transition: border 0.2s;
+}
+.betting-panel input:focus, .betting-panel select:focus {
+  border: 1.5px solid #6496ff;
+}
+.betting-panel button {
+  padding: 10px 24px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #00ff88 0%, #6496ff 100%);
+  color: #181c24;
+  font-weight: 900;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px #00ff8840;
+  transition: background 0.2s;
+}
+.betting-panel button:hover {
+  background: linear-gradient(90deg, #6496ff 0%, #00ff88 100%);
+}
+.odds-pool {
+  margin-top: 32px;
+  background: #1a202b;
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 2px 8px #0003;
+}
+.odds-pool h3 {
+  color: #00ff88;
+  margin-bottom: 10px;
+  font-size: 1.2rem;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+th, td {
+  padding: 10px;
+  text-align: center;
+  border-bottom: 1px solid #2e3542;
+  font-size: 1.05rem;
+}
+th {
+  background: #232a36;
+  color: #00ff88;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+tr:nth-child(even) { background: #232a36; }
+tr:nth-child(odd) { background: #1a202b; }
+.user-bets, .leaderboard {
+  margin-top: 32px;
+  background: #1a202b;
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 2px 8px #0003;
+}
+.user-bets h3, .leaderboard h3 {
+  color: #6496ff;
+  margin-bottom: 10px;
+  font-size: 1.15rem;
+}
+.user-bets ul {
+  list-style: none;
+  padding-left: 0;
+}
+.user-bets li {
+  margin-bottom: 6px;
+  font-size: 1.05rem;
+  color: #fff;
+  font-weight: 600;
+}
+.leaderboard ol {
+  padding-left: 20px;
+}
+.leaderboard li {
+  margin-bottom: 4px;
+  font-size: 1.05rem;
+  color: #fff;
+  font-weight: 600;
+}
+.leaderboard li:first-child {
+  color: #00ff88;
+  font-size: 1.15rem;
+  font-weight: 900;
+}

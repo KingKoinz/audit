@@ -1,0 +1,17 @@
+<!-- Add this section below your betting panel in bet.html -->
+<div class="wallet-gen-section" style="margin-top:32px; background:#1a202b; border-radius:12px; padding:18px 20px; box-shadow:0 2px 8px #0003;">
+  <h3 style="color:#00ff88;">🔐 Generate a Safe Betting Wallet</h3>
+  <p style="color:#b9ffcc; font-size:1.05rem;">For your security, do <b>NOT</b> use your main wallet. Generate a new wallet for betting and only send what you’re willing to play with.</p>
+  <button id="generate-wallet" style="background:linear-gradient(90deg,#00ff88 0%,#6496ff 100%);color:#181c24;border:none;border-radius:10px;padding:10px 22px;font-weight:800;font-size:1.1rem;cursor:pointer;box-shadow:0 2px 8px #00ff8840;">Generate New Wallet</button>
+  <div id="wallet-output" style="margin-top:18px;display:none;background:#232a36;padding:14px 12px;border-radius:8px;color:#fff;font-size:1rem;"></div>
+  <div style="margin-top:10px;color:#ff6b35;font-size:0.98rem;">⚠️ Save your private key securely. Never share it with anyone. If you lose it, you lose access to your funds!</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<script>
+  document.getElementById('generate-wallet').onclick = function() {
+    const wallet = ethers.Wallet.createRandom();
+    const output = document.getElementById('wallet-output');
+    output.style.display = 'block';
+    output.innerHTML = `<b>Address:</b> <span style='color:#00ff88;'>${wallet.address}</span><br><b>Private Key:</b> <span style='color:#ff4444;'>${wallet.privateKey}</span>`;
+  };
+</script>

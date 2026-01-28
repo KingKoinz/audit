@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>ENTROPY — Randomness Audit</title>
+  <link rel="stylesheet" href="/static/styles.css"/>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">
+      <img src="/Entropy.png" alt="ENTROPY" class="logo" />
+      <div class="brand-text">
+        <div class="name">ENTROPY</div>
+        <div class="tag">AI-powered chaos detector • Live pattern research • 20 years of data</div>
+      </div>
+    </div>
+    <div class="controls">
+      <select id="feedSelect">
+        <option value="powerball">Powerball</option>
+        <option value="megamillions">Mega Millions</option>
+      </select>
+      <button id="btnNow">Refresh</button>
+    </div>
+  </div>
+
+  <div id="headline-container">
+    <div id="verification-banner" class="hidden">
+      🔎 VERIFICATION MODE — ANALYZING STATISTICAL DEVIATION
+    </div>
+    <div id="ai-title">
+      Can lottery randomness be cracked?
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="grid-column left">
+      <div class="card wide">
+        <div class="card-title" id="panelTitle">Number Frequency Heatmap</div>
+        <div id="chartMain"></div>
+        <div class="foot">
+          <span id="statusLine">Monitoring…</span>
+          <span id="updatedAt"></span>
+        </div>
+        <div class="info-box">
+          <strong>What this shows:</strong> How often each number appeared in recent draws. Bright = frequent, Dark = rare. 
+          <strong>Key insight:</strong> Past patterns don't predict future draws—each draw is independent.
+        </div>
+      </div>
+      
+      <div class="card wide">
+        <div class="card-title">🔬 AI Autonomous Research Lab</div>
+        <div id="researchOut" class="research"></div>
+        <div class="info-box">
+          <strong>What's happening:</strong> AI proposes new pattern hypotheses every ~2 minutes, tests them against 20 years of data, shows its reasoning process, and reports findings. Watch the AI think in real-time!
+        </div>
+      </div>
+    </div>
+    
+    <div class="grid-column right">
+      <div class="card">
+        <div class="card-title">🎯 Myth Debunking Lab</div>
+        <div id="baitPanel" class="bait"></div>
+        <div class="rotating-panels">
+          <div class="myth-explainer panel-content" id="mythContainer">
+            <!-- Myths will be dynamically rotated here -->
+          </div>
+          <div class="prediction-tracker panel-content" id="predictionContainer" style="display:none;">
+            <!-- Prediction stats will be dynamically loaded here -->
+          </div>
+        </div>
+        <div class="panel-indicator">
+          <span class="dot active" data-panel="myth"></span>
+          <span class="dot" data-panel="prediction"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📊 Randomness Verification</div>
+        <div id="chartMonte" class="chart"></div>
+        <div class="info-box">
+          <strong>What this shows:</strong> Orange line = actual lottery. Blue band = expected random behavior.<br>
+          <strong>Result:</strong> <span id="monteVerdict" class="verdict-good">✓ Behaving randomly</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    ENTROPY uses publicly available draw data for identification/audit purposes only. No affiliation or endorsement implied. No gambling advice.
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+# Environment and secrets
+.env
+.env.local
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Local databases
+data/*.sqlite
+
+# Windows artifacts
+nul
+
+# IDE
+.vscode/
+.idea/
+
+# Large media (optional - uncomment if you want to exclude)
+# *.mp4

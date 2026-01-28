@@ -1,0 +1,20 @@
+[package]
+name = "entropy-betting"
+version = "0.1.0"
+description = "ENTROPY token betting contract for lottery predictions"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "entropy_betting"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = "0.29.0"
+anchor-spl = "0.29.0"

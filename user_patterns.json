@@ -1,0 +1,54 @@
+{
+  "description": "Statistical avenues for the AI to explore. Add ideas here and the AI will investigate them.",
+  "avenues": [
+    {
+      "id": "hot_number_predictive_power",
+      "question": "Do numbers currently classified as 'hot' (appeared frequently in last 30 draws) appear at an elevated rate in the NEXT draw?",
+      "details": "For each historical draw, classify all 70 numbers as hot/cold/overdue based on the prior 30 draws. Then check: did the winning numbers come from the 'hot' category more than the ~33% baseline would predict? Calculate the hit rate for hot numbers across all draws.",
+      "priority": "high",
+      "status": "pending",
+      "added": "2026-01-27"
+    },
+    {
+      "id": "cold_number_mean_reversion",
+      "question": "Do 'cold' numbers (appeared rarely in last 30 draws) eventually appear at elevated rates?",
+      "details": "Test the gambler's fallacy: when a number hasn't appeared for 30+ draws, does it have a higher probability of appearing in the next 10 draws than baseline? Or does cold stay cold?",
+      "priority": "high",
+      "status": "pending",
+      "added": "2026-01-27"
+    },
+    {
+      "id": "overdue_number_correction",
+      "question": "Do 'overdue' numbers (longest gap since last appearance) hit at elevated rates?",
+      "details": "Track numbers with the longest drought. When a number reaches 50+ draws without appearing, does it appear in the subsequent 20 draws more than random chance? Test if there's a 'correction' effect.",
+      "priority": "high",
+      "status": "pending",
+      "added": "2026-01-27"
+    },
+    {
+      "id": "hot_streak_momentum",
+      "question": "When a number appears 3+ times in 10 draws, does the streak continue?",
+      "details": "Identify 'streaking' numbers that have appeared at 3x+ expected rate recently. Do they continue appearing at elevated rates for another 5-10 draws, or does mean reversion kick in immediately?",
+      "priority": "high",
+      "status": "pending",
+      "added": "2026-01-27"
+    },
+    {
+      "id": "category_transition_timing",
+      "question": "How long do numbers stay in each category before transitioning?",
+      "details": "Track state transitions: hot->neutral->cold->overdue. Is there a predictable duration in each state? Do some numbers cycle faster than others?",
+      "priority": "medium",
+      "status": "pending",
+      "added": "2026-01-27"
+    },
+    {
+      "id": "combined_category_signal",
+      "question": "Does combining hot+overdue signals improve prediction?",
+      "details": "Test if numbers that are BOTH in a recent hot streak AND have a long historical drought show elevated appearance rates. The intersection of recency and historical absence.",
+      "priority": "medium",
+      "status": "pending",
+      "added": "2026-01-27"
+    }
+  ],
+  "completed": []
+}

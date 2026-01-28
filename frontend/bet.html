@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>ENTROPY — Betting</title>
+  <link rel="stylesheet" href="/static/styles.css"/>
+  <link rel="stylesheet" href="/static/bet-style.css"/>
+  <!-- Solana Web3.js -->
+  <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+  <script src="https://unpkg.com/@solana/spl-token@latest/lib/index.iife.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bn.js@5.2.1/bn.min.js"></script>
+</head>
+<body>
+  <div class="betting-container">
+    <h2>🎲 Predict the Next Hot Number!</h2>
+    <div class="wallet-connect">
+      <button>Connect Wallet</button>
+    </div>
+    <div class="betting-panel">
+      <label for="bet-type">Bet Type:</label>
+      <select id="bet-type">
+        <option value="hot">Hot (2x)</option>
+        <option value="cold">Cold (3x)</option>
+        <option value="overdue">Overdue (4x)</option>
+        <option value="exact">Exact Match (10x)</option>
+      </select>
+      <label for="number">Number:</label>
+      <input type="number" id="number" min="1" max="70" />
+      <label for="amount">Amount:</label>
+      <input type="number" id="amount" min="1" />
+      <button id="place-bet">Place Bet</button>
+    </div>
+    <div class="odds-pool">
+      <h3>Current Odds & Pool</h3>
+      <table>
+        <tr><th>Number</th><th>Type</th><th>Pool</th><th>Odds</th></tr>
+        <tr><td>7</td><td>Hot</td><td>120</td><td>1:5</td></tr>
+        <tr><td>12</td><td>Cold</td><td>80</td><td>1:8</td></tr>
+        <tr><td>23</td><td>Overdue</td><td>60</td><td>1:10</td></tr>
+      </table>
+    </div>
+
+    <!-- Wallet Generator Section -->
+    <div class="wallet-gen-section" style="margin-top:32px; background:#1a202b; border-radius:12px; padding:18px 20px; box-shadow:0 2px 8px #0003;">
+      <h3 style="color:#00ff88;">🔐 Generate a Safe Betting Wallet</h3>
+      <p style="color:#b9ffcc; font-size:1.05rem;">For your security, do <b>NOT</b> use your main wallet. Generate a new wallet for betting and only send what you’re willing to play with.</p>
+      <button id="generate-wallet" style="background:linear-gradient(90deg,#00ff88 0%,#6496ff 100%);color:#181c24;border:none;border-radius:10px;padding:10px 22px;font-weight:800;font-size:1.1rem;cursor:pointer;box-shadow:0 2px 8px #00ff8840;">Generate New Wallet</button>
+      <div id="wallet-output" style="margin-top:18px;display:none;background:#232a36;padding:14px 12px;border-radius:8px;color:#fff;font-size:1rem;"></div>
+      <div style="margin-top:10px;color:#ff6b35;font-size:0.98rem;">⚠️ Save your private key securely. Never share it with anyone. If you lose it, you lose access to your funds!</div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script>
+      document.getElementById('generate-wallet').onclick = function() {
+        const wallet = ethers.Wallet.createRandom();
+        const output = document.getElementById('wallet-output');
+        output.style.display = 'block';
+        output.innerHTML = `<b>Address:</b> <span style='color:#00ff88;'>${wallet.address}</span><br><b>Private Key:</b> <span style='color:#ff4444;'>${wallet.privateKey}</span>`;
+      };
+    </script>
+    <div class="user-bets">
+      <h3>Your Bets</h3>
+      <ul>
+        <li>Hot #7 — 10 tokens</li>
+        <li>Cold #12 — 5 tokens</li>
+      </ul>
+    </div>
+    <div class="leaderboard">
+      <h3>🏆 Top Predictors</h3>
+      <ol>
+        <li>@memelord — 120 tokens won</li>
+        <li>@luckyuser — 90 tokens won</li>
+        <li>@entropymaxi — 70 tokens won</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- ENTROPY Betting Client -->
+  <script src="/static/entropy-betting.js"></script>
+</body>
+</html>
