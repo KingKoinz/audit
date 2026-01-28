@@ -35,6 +35,90 @@ async def _startup():
     else:
         print("[STARTUP] Database has existing data. Skipping auto-ingestion.")
 
+    # Daily auto-update: Check and update hot/cold/overdue for both games
+    await daily_predictions_update()
+
+
+async def daily_predictions_update():
+    """
+    Check both Powerball and Mega Millions for new draws.
+    Update hot/cold/overdue numbers and validate past predictions.
+    Runs on startup - designed to catch up even if app was down for days.
+    """
+    from backend.research_journal import (
+        classify_numbers_hot_cold_overdue,
+        save_prediction_snapshot,
+        validate_prediction,
+        get_recent_predictions
+    )
+    from backend.audit import RANGES
+    import sqlite3
+    from pathlib import Path
+    from datetime import datetime, timezone
+
+    feeds = ["powerball", "megamillions"]
+    db_path = Path("./data/research_journal.sqlite")
+
+    for feed_key in feeds:
+        try:
+            # Get all draws for this feed
+            all_draws = get_all_draws(feed_key)
+            if not all_draws:
+                print(f"[DAILY-UPDATE] No draws found for {feed_key}")
+                continue
+
+            # Get the latest draw
+            latest_draw = all_draws[0]  # Most recent
+            latest_date = latest_draw.get("date", "")
+            latest_numbers = latest_draw.get("numbers", [])
+
+            print(f"[DAILY-UPDATE] {feed_key.upper()}: Latest draw {latest_date}")
+
+            # Check if we already have a snapshot for this draw
+            conn = sqlite3.connect(str(db_path))
+            c = conn.cursor()
+
+            # Check for existing snapshot for today's draw
+            c.execute("""
+                SELECT id, validated FROM prediction_snapshots
+                WHERE feed_key = ? AND draw_date LIKE ?
+                ORDER BY created_at DESC LIMIT 1
+            """, (feed_key, f"{latest_date}%"))
+            existing = c.fetchone()
+
+            if existing:
+                snapshot_id, validated = existing
+                # Validate if not already validated
+                if not validated and latest_numbers:
+                    print(f"[DAILY-UPDATE] Validating prediction for {feed_key} draw {latest_date}")
+                    result = validate_prediction(feed_key, latest_date, latest_numbers)
+                    if result.get("status") == "validated":
+                        print(f"[DAILY-UPDATE] Validated: hot_hits={result['hot_hits']}, cold_hits={result['cold_hits']}, overdue_hits={result['overdue_hits']}")
+            else:
+                # Create new snapshot with current hot/cold/overdue
+                max_num = RANGES[feed_key]["main_max"]
+                classifications = classify_numbers_hot_cold_overdue(all_draws, max_num, lookback=30)
+
+                # Use today's date for the snapshot
+                today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+                snapshot_id = save_prediction_snapshot(
+                    feed_key=feed_key,
+                    draw_date=today,
+                    hot_numbers=classifications["hot"],
+                    cold_numbers=classifications["cold"],
+                    overdue_numbers=classifications["overdue"],
+                    lookback_window=30
+                )
+                print(f"[DAILY-UPDATE] Created snapshot {snapshot_id} for {feed_key}")
+                print(f"[DAILY-UPDATE] Hot: {classifications['hot'][:5]}... Cold: {classifications['cold'][:5]}... Overdue: {classifications['overdue'][:5]}...")
+
+            conn.close()
+
+        except Exception as e:
+            print(f"[DAILY-UPDATE] Error for {feed_key}: {e}")
+
+    print("[DAILY-UPDATE] Complete for all feeds")
+
 @app.get("/", response_class=HTMLResponse)
 def home():
     return FileResponse("frontend/index.html")
