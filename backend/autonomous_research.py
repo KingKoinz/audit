@@ -454,7 +454,7 @@ If you investigate one of these, design an appropriate test to answer the questi
 **AVAILABLE PRE-BUILT TEST METHODS:**
 
 **Basic Pattern Tests:**
-1. digit_ending: Test if numbers ending in X (0-9) appear more/less often
+1. digit_ending: Test if numbers ending in X (0-9) appear more/less often - USE THIS for digit frequency patterns! Examples: "numbers ending in 5", "multiples of 5 (ending in 0 or 5)", "low numbers (ending in 1-3)"
 2. consecutive_numbers: Test if consecutive numbers cluster
 3. sum_range: Test if draw sums favor specific ranges (REQUIRES parameters: {{"low": <int>, "high": <int>}})
     - Example: "parameters": {{"low": 100, "high": 150}}
@@ -756,7 +756,7 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
 **AVAILABLE PRE-BUILT TEST METHODS:**
 
 **Basic Pattern Tests:**
-1. digit_ending: Test if numbers ending in X (0-9) appear more/less often
+1. digit_ending: Test if numbers ending in X (0-9) appear more/less often - USE THIS for digit frequency patterns! Examples: "numbers ending in 5", "multiples of 5 (ending in 0 or 5)", "low numbers (ending in 1-3)"
 2. consecutive_numbers: Test if consecutive numbers cluster
 3. sum_range: Test if draw sums favor specific ranges (REQUIRES parameters: {{"low": <int>, "high": <int>}})
     - Example: "parameters": {{"low": 100, "high": 150}}
