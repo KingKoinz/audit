@@ -374,6 +374,9 @@ def classify_numbers_hot_cold_overdue(draws: List[Dict], max_num: int, lookback:
     last_seen = {n: float('inf') for n in range(1, max_num + 1)}
     for i, draw in enumerate(draws):
         for n in draw["numbers"]:
+            # Skip numbers outside valid range (historical data may have different ranges)
+            if n < 1 or n > max_num:
+                continue
             if last_seen[n] == float('inf'):
                 last_seen[n] = i
 
