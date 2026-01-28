@@ -67,9 +67,12 @@ async def daily_predictions_update():
                 print(f"[DAILY-UPDATE] No draws found for {feed_key}")
                 continue
 
+            # Sort by date descending to get most recent first
+            all_draws_sorted = sorted(all_draws, key=lambda x: x.get("draw_date", ""), reverse=True)
+
             # Get the latest draw
-            latest_draw = all_draws[0]  # Most recent
-            latest_date = latest_draw.get("date", "")
+            latest_draw = all_draws_sorted[0]  # Most recent
+            latest_date = latest_draw.get("draw_date", "")  # Key is draw_date, not date
             latest_numbers = latest_draw.get("numbers", [])
 
             print(f"[DAILY-UPDATE] {feed_key.upper()}: Latest draw {latest_date}")
@@ -97,7 +100,7 @@ async def daily_predictions_update():
             else:
                 # Create new snapshot with current hot/cold/overdue
                 max_num = RANGES[feed_key]["main_max"]
-                classifications = classify_numbers_hot_cold_overdue(all_draws, max_num, lookback=30)
+                classifications = classify_numbers_hot_cold_overdue(all_draws_sorted, max_num, lookback=30)
 
                 # Use today's date for the snapshot
                 today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
