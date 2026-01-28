@@ -59,6 +59,10 @@ def megamillions_logo():
 def illinois_logo():
     return FileResponse("illinois-lottery.png")
 
+@app.get("/sw.js")
+def service_worker():
+    return FileResponse("frontend/sw.js", media_type="application/javascript")
+
 @app.get("/api/health")
 def health():
     return {"ok": True}
@@ -564,3 +568,108 @@ def vote_suggestion(suggestion_id: int):
             s["votes"] += 1
             return {"success": True, "votes": s["votes"]}
     return {"error": "Suggestion not found"}
+
+
+# ============== FINDINGS LOG & ALERTS ==============
+
+from backend.alerts import (
+    get_findings, acknowledge_finding,
+    save_push_subscription, get_push_subscriptions
+)
+
+@app.get("/findings", response_class=HTMLResponse)
+def findings_page():
+    """Serve the findings log page."""
+    return FileResponse("frontend/findings.html")
+
+
+@app.get("/api/findings")
+def api_get_findings(
+    level: str = None,
+    feed_key: str = None,
+    limit: int = 100,
+    unacknowledged: bool = False
+):
+    """Get findings from the alert log."""
+    findings = get_findings(
+        level_filter=level,
+        feed_key=feed_key,
+        limit=limit,
+        unacknowledged_only=unacknowledged
+    )
+    return {"findings": findings, "count": len(findings)}
+
+
+@app.post("/api/findings/{finding_id}/acknowledge")
+def api_acknowledge_finding(finding_id: int, notes: str = ""):
+    """Acknowledge a finding."""
+    success = acknowledge_finding(finding_id, notes)
+    return {"success": success}
+
+
+@app.get("/api/findings/stats")
+def api_findings_stats():
+    """Get findings statistics."""
+    all_findings = get_findings(limit=1000)
+
+    stats = {
+        "total": len(all_findings),
+        "by_level": {},
+        "by_feed": {},
+        "unacknowledged": 0
+    }
+
+    for f in all_findings:
+        level = f['discovery_level']
+        feed = f['feed_key']
+
+        stats["by_level"][level] = stats["by_level"].get(level, 0) + 1
+        stats["by_feed"][feed] = stats["by_feed"].get(feed, 0) + 1
+
+        if not f['acknowledged']:
+            stats["unacknowledged"] += 1
+
+    return stats
+
+
+# ============== PUSH NOTIFICATIONS ==============
+
+import os
+VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "")
+
+@app.get("/api/push/vapid-key")
+def get_vapid_key():
+    """Get the VAPID public key for push subscriptions."""
+    return {"publicKey": VAPID_PUBLIC_KEY}
+
+
+@app.post("/api/push/subscribe")
+def subscribe_push(subscription: dict):
+    """Subscribe to push notifications."""
+    endpoint = subscription.get("endpoint")
+    keys = subscription.get("keys", {})
+    p256dh = keys.get("p256dh")
+    auth = keys.get("auth")
+
+    if not all([endpoint, p256dh, auth]):
+        return {"error": "Invalid subscription data"}
+
+    success = save_push_subscription(endpoint, p256dh, auth)
+    return {"success": success}
+
+
+@app.delete("/api/push/subscribe")
+def unsubscribe_push(endpoint: str):
+    """Unsubscribe from push notifications."""
+    import sqlite3
+    from pathlib import Path
+    ALERTS_DB = Path("./data/alerts.sqlite")
+
+    conn = sqlite3.connect(str(ALERTS_DB))
+    c = conn.cursor()
+    c.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,))
+    deleted = c.rowcount > 0
+    conn.commit()
+    conn.close()
+
+    return {"success": deleted}

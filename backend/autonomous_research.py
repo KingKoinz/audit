@@ -17,6 +17,7 @@ from backend.research_journal import (
 from backend.pattern_tests import PATTERN_TESTS
 from backend.db import get_all_draws
 from backend.discovery_framework import classify_discovery, track_persistence
+from backend.alerts import alert_discovery
 
 
 def convert_numpy_types(obj):
@@ -1167,6 +1168,17 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
                 if discovery["level"] in ["VERIFIED", "LEGENDARY"]:
                     pursuit_mode_message = f"✅ VERIFICATION COMPLETE: Pattern VERIFIED after {updated_pursuit['pursuit_attempts']} tests!"
                     end_pursuit(feed_key, "verified")
+                    # ALERT: Pattern verified through pursuit!
+                    alert_discovery(
+                        feed_key=feed_key,
+                        discovery_level=discovery["level"],
+                        hypothesis=hypothesis_data["hypothesis"],
+                        test_method=test_method,
+                        p_value=results["p_value"],
+                        effect_size=results["effect_size"],
+                        persistence_count=updated_pursuit["pursuit_attempts"],
+                        details={"parameters": parameters, "iteration": iteration, "verification": "complete"}
+                    )
                 else:
                     pursuit_mode_message = f"⏹️ VERIFICATION ENDED: Max attempts (5) reached. Pattern inconclusive."
                     end_pursuit(feed_key, "max_attempts")
@@ -1174,6 +1186,17 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
                 # Pattern verified with 3+ persistence
                 pursuit_mode_message = f"🚨 PATTERN VERIFIED! Persisted across {persistence_count} tests. Exiting verification mode."
                 end_pursuit(feed_key, "verified")
+                # ALERT: Pattern verified through persistence!
+                alert_discovery(
+                    feed_key=feed_key,
+                    discovery_level=discovery["level"],
+                    hypothesis=hypothesis_data["hypothesis"],
+                    test_method=test_method,
+                    p_value=results["p_value"],
+                    effect_size=results["effect_size"],
+                    persistence_count=persistence_count,
+                    details={"parameters": parameters, "iteration": iteration, "verification": "persistence"}
+                )
             else:
                 # Continue verification
                 pursuit_mode_message = f"🔬 VERIFICATION MODE: Pattern persists (attempt {updated_pursuit['pursuit_attempts']}/5). Continue testing..."
@@ -1198,9 +1221,33 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
             )
             pursuit_mode_message = "🔶 CANDIDATE DETECTED: Entering VERIFICATION MODE. Next iteration will re-test this pattern."
 
+            # ALERT: Log and notify about the candidate
+            alert_discovery(
+                feed_key=feed_key,
+                discovery_level="CANDIDATE",
+                hypothesis=hypothesis_data["hypothesis"],
+                test_method=test_method,
+                p_value=results["p_value"],
+                effect_size=results["effect_size"],
+                persistence_count=persistence_count,
+                details={"parameters": parameters, "iteration": iteration}
+            )
+
         elif discovery["level"] in ["VERIFIED", "LEGENDARY"]:
             # Immediately verified (rare - would need existing persistence)
             pursuit_mode_message = f"🚨 {discovery['label'].upper()}: Pattern immediately verified!"
+
+            # ALERT: Major discovery - log and notify immediately
+            alert_discovery(
+                feed_key=feed_key,
+                discovery_level=discovery["level"],
+                hypothesis=hypothesis_data["hypothesis"],
+                test_method=test_method,
+                p_value=results["p_value"],
+                effect_size=results["effect_size"],
+                persistence_count=persistence_count,
+                details={"parameters": parameters, "iteration": iteration, "immediate": True}
+            )
 
     # Get final pursuit state for response
     final_pursuit_state = get_pursuit_state(feed_key)

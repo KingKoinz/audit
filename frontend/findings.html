@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ENTROPY - Findings Log</title>
+  <link rel="icon" href="/Entropy.png" type="image/png">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%);
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+
+    .header {
+      background: rgba(0,0,0,0.8);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px solid #ff4444;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .logo {
+      width: 50px;
+      height: 50px;
+    }
+
+    .brand-text .name {
+      font-size: 1.8rem;
+      font-weight: bold;
+      background: linear-gradient(90deg, #ff4444, #ff8c00);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-text .tag {
+      font-size: 0.8rem;
+      color: #888;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .nav-links a {
+      color: #e0e0e0;
+      text-decoration: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+
+    .nav-links a:hover {
+      background: rgba(255,68,68,0.2);
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .page-title {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .page-subtitle {
+      color: #888;
+      margin-bottom: 2rem;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+      padding: 1.5rem;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .stat-card.legendary { border-color: #ff00ff; background: rgba(255,0,255,0.1); }
+    .stat-card.verified { border-color: #ff4444; background: rgba(255,68,68,0.1); }
+    .stat-card.candidate { border-color: #ff8c00; background: rgba(255,140,0,0.1); }
+
+    .stat-value {
+      font-size: 2.5rem;
+      font-weight: bold;
+    }
+
+    .stat-label {
+      color: #888;
+      font-size: 0.9rem;
+    }
+
+    .filters {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .filters select, .filters button {
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      border: 1px solid #333;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      cursor: pointer;
+    }
+
+    .filters button.active {
+      background: #ff4444;
+      border-color: #ff4444;
+    }
+
+    .findings-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .finding-card {
+      background: rgba(255,255,255,0.03);
+      border-radius: 8px;
+      padding: 1.5rem;
+      border-left: 4px solid #888;
+      transition: transform 0.2s;
+    }
+
+    .finding-card:hover {
+      transform: translateX(4px);
+    }
+
+    .finding-card.LEGENDARY { border-left-color: #ff00ff; }
+    .finding-card.VERIFIED { border-left-color: #ff4444; }
+    .finding-card.CANDIDATE { border-left-color: #ff8c00; }
+    .finding-card.INTERESTING { border-left-color: #fbbf24; }
+
+    .finding-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+
+    .finding-level {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: bold;
+    }
+
+    .finding-level.LEGENDARY { background: rgba(255,0,255,0.2); color: #ff00ff; }
+    .finding-level.VERIFIED { background: rgba(255,68,68,0.2); color: #ff4444; }
+    .finding-level.CANDIDATE { background: rgba(255,140,0,0.2); color: #ff8c00; }
+    .finding-level.INTERESTING { background: rgba(251,191,36,0.2); color: #fbbf24; }
+
+    .finding-meta {
+      font-size: 0.85rem;
+      color: #666;
+    }
+
+    .finding-hypothesis {
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+      line-height: 1.4;
+    }
+
+    .finding-stats {
+      display: flex;
+      gap: 2rem;
+      font-size: 0.9rem;
+      color: #888;
+      margin-bottom: 1rem;
+    }
+
+    .finding-stats strong {
+      color: #e0e0e0;
+    }
+
+    .finding-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .finding-actions button {
+      padding: 0.4rem 0.8rem;
+      border-radius: 4px;
+      border: 1px solid #333;
+      background: transparent;
+      color: #888;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+
+    .finding-actions button:hover {
+      background: rgba(255,255,255,0.1);
+      color: #e0e0e0;
+    }
+
+    .finding-actions button.ack-btn {
+      border-color: #4ade80;
+      color: #4ade80;
+    }
+
+    .finding-card.acknowledged {
+      opacity: 0.6;
+    }
+
+    .finding-card.acknowledged .finding-level::after {
+      content: " (ACK)";
+      font-size: 0.7rem;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: #666;
+    }
+
+    .empty-state .icon {
+      font-size: 4rem;
+      margin-bottom: 1rem;
+    }
+
+    .push-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: rgba(255,255,255,0.05);
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .push-toggle input {
+      width: 20px;
+      height: 20px;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .live-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #4ade80;
+      font-size: 0.85rem;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      background: #4ade80;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <img src="/Entropy.png" alt="ENTROPY" class="logo">
+      <div class="brand-text">
+        <div class="name">ENTROPY</div>
+        <div class="tag">Findings Log - Anomaly Tracker</div>
+      </div>
+    </div>
+    <div class="nav-links">
+      <a href="/">Live Research</a>
+      <a href="/bet">Prediction Arena</a>
+      <a href="/findings" style="background: rgba(255,68,68,0.2);">Findings</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <h1 class="page-title">
+      Findings Log
+      <span class="live-indicator"><span class="live-dot"></span> Auto-refresh</span>
+    </h1>
+    <p class="page-subtitle">All CANDIDATE+ discoveries are logged here for review and investigation.</p>
+
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-card legendary">
+        <div class="stat-value" id="legendaryCount">0</div>
+        <div class="stat-label">LEGENDARY</div>
+      </div>
+      <div class="stat-card verified">
+        <div class="stat-value" id="verifiedCount">0</div>
+        <div class="stat-label">VERIFIED</div>
+      </div>
+      <div class="stat-card candidate">
+        <div class="stat-value" id="candidateCount">0</div>
+        <div class="stat-label">CANDIDATE</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="unackCount">0</div>
+        <div class="stat-label">Unacknowledged</div>
+      </div>
+    </div>
+
+    <div class="filters">
+      <select id="levelFilter">
+        <option value="">All Levels</option>
+        <option value="LEGENDARY">LEGENDARY</option>
+        <option value="VERIFIED">VERIFIED</option>
+        <option value="CANDIDATE">CANDIDATE</option>
+        <option value="INTERESTING">INTERESTING</option>
+      </select>
+      <select id="feedFilter">
+        <option value="">All Feeds</option>
+        <option value="powerball">Powerball</option>
+        <option value="megamillions">Mega Millions</option>
+      </select>
+      <button id="unackFilter">Show Unacknowledged Only</button>
+      <label class="push-toggle">
+        <input type="checkbox" id="pushToggle">
+        <span>Push Notifications</span>
+      </label>
+    </div>
+
+    <div class="findings-list" id="findingsList">
+      <div class="empty-state">
+        <div class="icon">...</div>
+        <p>Loading findings...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let showUnackOnly = false;
+
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/findings/stats');
+        const stats = await res.json();
+
+        document.getElementById('legendaryCount').textContent = stats.by_level?.LEGENDARY || 0;
+        document.getElementById('verifiedCount').textContent = stats.by_level?.VERIFIED || 0;
+        document.getElementById('candidateCount').textContent = stats.by_level?.CANDIDATE || 0;
+        document.getElementById('unackCount').textContent = stats.unacknowledged || 0;
+      } catch (e) {
+        console.error('Failed to load stats:', e);
+      }
+    }
+
+    async function loadFindings() {
+      const level = document.getElementById('levelFilter').value;
+      const feed = document.getElementById('feedFilter').value;
+
+      let url = `/api/findings?limit=100`;
+      if (level) url += `&level=${level}`;
+      if (feed) url += `&feed_key=${feed}`;
+      if (showUnackOnly) url += `&unacknowledged=true`;
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        renderFindings(data.findings);
+      } catch (e) {
+        console.error('Failed to load findings:', e);
+        document.getElementById('findingsList').innerHTML = `
+          <div class="empty-state">
+            <div class="icon">Error</div>
+            <p>Failed to load findings</p>
+          </div>
+        `;
+      }
+    }
+
+    function renderFindings(findings) {
+      const container = document.getElementById('findingsList');
+
+      if (!findings || findings.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">No findings</div>
+            <p>No significant findings yet. The AI is still hunting for anomalies.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = findings.map(f => {
+        const emoji = {
+          LEGENDARY: 'Crown',
+          VERIFIED: 'Alert',
+          CANDIDATE: 'Diamond',
+          INTERESTING: 'Eye'
+        }[f.discovery_level] || 'Chart';
+
+        const time = new Date(f.timestamp).toLocaleString();
+
+        return `
+          <div class="finding-card ${f.discovery_level} ${f.acknowledged ? 'acknowledged' : ''}" data-id="${f.id}">
+            <div class="finding-header">
+              <span class="finding-level ${f.discovery_level}">
+                ${emoji} ${f.discovery_level}
+              </span>
+              <span class="finding-meta">${f.feed_key.toUpperCase()} | ${time}</span>
+            </div>
+            <div class="finding-hypothesis">${escapeHtml(f.hypothesis)}</div>
+            <div class="finding-stats">
+              <span><strong>P-Value:</strong> ${f.p_value.toFixed(6)}</span>
+              <span><strong>Effect Size:</strong> ${f.effect_size.toFixed(4)}</span>
+              <span><strong>Persistence:</strong> ${f.persistence_count}x</span>
+              <span><strong>Method:</strong> ${f.test_method}</span>
+            </div>
+            <div class="finding-actions">
+              ${!f.acknowledged ? `<button class="ack-btn" onclick="acknowledgeFinding(${f.id})">Acknowledge</button>` : ''}
+              <button onclick="copyFinding(${f.id})">Copy Details</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    async function acknowledgeFinding(id) {
+      try {
+        await fetch(`/api/findings/${id}/acknowledge`, { method: 'POST' });
+        loadFindings();
+        loadStats();
+      } catch (e) {
+        console.error('Failed to acknowledge:', e);
+      }
+    }
+
+    function copyFinding(id) {
+      const card = document.querySelector(`[data-id="${id}"]`);
+      const hypothesis = card.querySelector('.finding-hypothesis').textContent;
+      const stats = card.querySelector('.finding-stats').textContent;
+      navigator.clipboard.writeText(`${hypothesis}\n\n${stats}`);
+      alert('Copied to clipboard!');
+    }
+
+    // Push notifications
+    async function initPush() {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        document.querySelector('.push-toggle').style.display = 'none';
+        return;
+      }
+
+      const toggle = document.getElementById('pushToggle');
+
+      // Check if already subscribed
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      toggle.checked = !!sub;
+
+      toggle.addEventListener('change', async () => {
+        if (toggle.checked) {
+          await subscribePush();
+        } else {
+          await unsubscribePush();
+        }
+      });
+    }
+
+    async function subscribePush() {
+      try {
+        // Register service worker
+        const reg = await navigator.serviceWorker.register('/sw.js');
+
+        // Get VAPID key
+        const keyRes = await fetch('/api/push/vapid-key');
+        const { publicKey } = await keyRes.json();
+
+        if (!publicKey) {
+          alert('Push notifications not configured on server');
+          document.getElementById('pushToggle').checked = false;
+          return;
+        }
+
+        // Subscribe
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey)
+        });
+
+        // Send to server
+        await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sub.toJSON())
+        });
+
+        alert('Push notifications enabled!');
+      } catch (e) {
+        console.error('Push subscription failed:', e);
+        document.getElementById('pushToggle').checked = false;
+        alert('Failed to enable push notifications');
+      }
+    }
+
+    async function unsubscribePush() {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+          await sub.unsubscribe();
+          await fetch(`/api/push/subscribe?endpoint=${encodeURIComponent(sub.endpoint)}`, {
+            method: 'DELETE'
+          });
+        }
+      } catch (e) {
+        console.error('Unsubscribe failed:', e);
+      }
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+      return outputArray;
+    }
+
+    // Event listeners
+    document.getElementById('levelFilter').addEventListener('change', loadFindings);
+    document.getElementById('feedFilter').addEventListener('change', loadFindings);
+    document.getElementById('unackFilter').addEventListener('click', (e) => {
+      showUnackOnly = !showUnackOnly;
+      e.target.classList.toggle('active', showUnackOnly);
+      loadFindings();
+    });
+
+    // Initial load
+    loadStats();
+    loadFindings();
+    initPush();
+
+    // Auto-refresh every 30 seconds
+    setInterval(() => {
+      loadStats();
+      loadFindings();
+    }, 30000);
+  </script>
+</body>
+</html>
