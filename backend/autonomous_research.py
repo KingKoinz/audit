@@ -515,16 +515,39 @@ If you investigate one of these, design an appropriate test to answer the questi
         if new_method in recent_methods:
             return False
 
-        # ENFORCE CATEGORY DIVERSITY - reject if same category 3+ times in last 5
+        # BLOCK "custom" method if used too often (catch-all abuse prevention)
+        custom_count = sum(1 for h in history[-5:] if h and h.get('test_method', '') == 'custom')
+        if new_method == 'custom' and custom_count >= 2:
+            return False
+
+        # ENFORCE PATTERN DIVERSITY - reject similar hypothesis patterns
+        # These patterns catch variations like "divisible by 7" vs "divisible by 11"
+        repetitive_patterns = [
+            'divisible by', 'multiple of', 'factor of', 'modulo', 'mod ',
+            'ending in', 'ends in', 'digit ',
+            'fibonacci', 'prime', 'perfect square',
+        ]
+        new_hyp_lower = new_hypothesis.lower()
+        for pattern in repetitive_patterns:
+            if pattern in new_hyp_lower:
+                # Check if this pattern appeared in recent history
+                pattern_count = 0
+                for h in history[-5:]:
+                    if not h: continue
+                    if pattern in h.get('hypothesis', '').lower():
+                        pattern_count += 1
+                if pattern_count >= 2:  # Block if pattern used 2+ times in last 5
+                    return False
+
+        # ENFORCE CATEGORY DIVERSITY - reject if same category 2+ times in last 3
         category_keywords = {
-            'number_theory': ['prime', 'fibonacci', 'square', 'palindrome', 'divisible', 'digit', 'modulo'],
-            'temporal': ['day', 'week', 'month', 'year', 'season', 'time', 'weekend', 'weekday', 'temporal'],
-            'positional': ['first', 'last', 'position', 'slot', 'order', 'positional'],
-            'statistical': ['correlation', 'autocorrelation', 'recency', 'streak', 'runs', 'markov', 'entropy'],
-            'structural': ['sum', 'range', 'even', 'odd', 'consecutive', 'cluster', 'pair', 'triplet']
+            'number_theory': ['prime', 'fibonacci', 'square', 'palindrome', 'divisible', 'digit', 'modulo', 'multiple', 'factor'],
+            'temporal': ['day', 'week', 'month', 'year', 'season', 'time', 'weekend', 'weekday', 'temporal', 'date'],
+            'positional': ['first', 'last', 'position', 'slot', 'order', 'positional', 'index'],
+            'statistical': ['correlation', 'autocorrelation', 'recency', 'streak', 'runs', 'markov', 'entropy', 'frequency', 'distribution'],
+            'structural': ['sum', 'range', 'even', 'odd', 'consecutive', 'cluster', 'pair', 'triplet', 'gap', 'spacing']
         }
         new_category = None
-        new_hyp_lower = new_hypothesis.lower()
         for cat, keywords in category_keywords.items():
             if any(kw in new_hyp_lower for kw in keywords):
                 new_category = cat
@@ -532,7 +555,7 @@ If you investigate one of these, design an appropriate test to answer the questi
 
         if new_category:
             same_cat_count = 0
-            for h in history[-5:]:
+            for h in history[-3:]:  # Stricter: check last 3 instead of 5
                 if not h: continue
                 hist_lower = h.get('hypothesis', '').lower()
                 for cat, keywords in category_keywords.items():
@@ -540,7 +563,7 @@ If you investigate one of these, design an appropriate test to answer the questi
                         if cat == new_category:
                             same_cat_count += 1
                         break
-            if same_cat_count >= 3:
+            if same_cat_count >= 2:  # Stricter: 2+ in last 3 instead of 3+ in last 5
                 return False
 
         return True
@@ -564,11 +587,11 @@ If you investigate one of these, design an appropriate test to answer the questi
 
     # --- Detect recent categories to force rotation ---
     category_keywords = {
-        'number_theory': ['prime', 'fibonacci', 'square', 'palindrome', 'divisible', 'digit', 'modulo'],
-        'temporal': ['day', 'week', 'month', 'year', 'season', 'time', 'weekend', 'weekday', 'temporal'],
-        'positional': ['first', 'last', 'position', 'slot', 'order', 'positional'],
-        'statistical': ['correlation', 'autocorrelation', 'recency', 'streak', 'runs', 'markov', 'entropy'],
-        'structural': ['sum', 'range', 'even', 'odd', 'consecutive', 'cluster', 'pair', 'triplet']
+        'number_theory': ['prime', 'fibonacci', 'square', 'palindrome', 'divisible', 'digit', 'modulo', 'multiple', 'factor'],
+        'temporal': ['day', 'week', 'month', 'year', 'season', 'time', 'weekend', 'weekday', 'temporal', 'date'],
+        'positional': ['first', 'last', 'position', 'slot', 'order', 'positional', 'index'],
+        'statistical': ['correlation', 'autocorrelation', 'recency', 'streak', 'runs', 'markov', 'entropy', 'frequency', 'distribution'],
+        'structural': ['sum', 'range', 'even', 'odd', 'consecutive', 'cluster', 'pair', 'triplet', 'gap', 'spacing']
     }
     recent_categories = []
     for h in history[-5:]:
