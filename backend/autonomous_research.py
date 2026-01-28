@@ -476,7 +476,12 @@ If you investigate one of these, design an appropriate test to answer the questi
 15. weekend_weekday_bias: Test if SPECIFIC NUMBER appears more on weekends vs weekdays
 16. temporal_persistence: Test if elevated number frequencies PERSIST over time
 
+**PREFER PRE-BUILT METHODS FIRST** - Only use "custom" if none of the pre-built methods fit your hypothesis!
+- If you want to test a specific number frequency: use digit_ending or another pre-built method
+- If your pattern fits into these categories, use the pre-built tests - they're optimized and reliable
+
 **OR INVENT YOUR OWN CUSTOM TEST - EXPLORE DIVERSE PATTERN CATEGORIES:**
+(Use these ONLY when pre-built methods won't work, and always provide detailed custom_test_logic)
 
 **Category A: Temporal & Sequential Patterns (USE THE NEW DATE-CORRELATION TESTS ABOVE!)**
 - Number-specific day-of-week correlations (use day_of_week_bias test!)
@@ -773,7 +778,12 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
 15. weekend_weekday_bias: Test if SPECIFIC NUMBER appears more on weekends vs weekdays
 16. temporal_persistence: Test if elevated number frequencies PERSIST over time
 
+**PREFER PRE-BUILT METHODS FIRST** - Only use "custom" if none of the pre-built methods fit your hypothesis!
+- If you want to test a specific number frequency: use digit_ending or another pre-built method
+- If your pattern fits into these categories, use the pre-built tests - they're optimized and reliable
+
 **OR INVENT YOUR OWN CUSTOM TEST - EXPLORE DIVERSE PATTERN CATEGORIES:**
+(Use these ONLY when pre-built methods won't work, and always provide detailed custom_test_logic)
 
 **Category A: Temporal & Sequential Patterns (USE THE NEW DATE-CORRELATION TESTS ABOVE!)**
 - Number-specific day-of-week correlations (use day_of_week_bias test!)
@@ -837,6 +847,13 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
   "creativity_score": 7
 }}
 
+**⚠️ CRITICAL: CUSTOM TEST RULE:**
+- If you choose test_method="custom", you MUST provide the custom_test_logic field
+- custom_test_logic should describe the EXACT statistical methodology in a single line
+- Example: "Count how many draws have sum > 200 vs sum <= 200, calculate chi-square statistic, report p-value"
+- If you cannot describe a clear custom test logic, CHOOSE A PRE-BUILT METHOD INSTEAD!
+- Responses with test_method="custom" but NO custom_test_logic will be REJECTED and you'll have to try again
+
 **IMPORTANT NOTES ON TEMPORAL TESTS:**
 - When testing if a SPECIFIC NUMBER correlates with dates, use the temporal tests (day_of_week_bias, month_bias, etc.)
 - ALWAYS specify target_number in parameters for temporal tests
@@ -850,6 +867,7 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
 - Escape any quotes inside strings with backslash
 - Keep it simple and valid JSON
 - Set creativity_score (1-10) based on how novel your hypothesis is
+- If test_method="custom", MUST include custom_test_logic field
 
 **CRITICAL: DECIDE YOUR NEXT RESEARCH INTERVAL (30 sec to 30 min)**
 - If you found VIABLE pattern: Speed up (60-120s) to verify persistence
@@ -922,6 +940,13 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
                 if same_cat_count >= 2:
                     if attempt < max_retries - 1:
                         continue  # Retry with different category
+
+        # Quick validation inside loop to enable retry
+        # Check if custom test is missing required field
+        if hypothesis_data.get("test_method") == "custom":
+            if not hypothesis_data.get("custom_test_logic"):
+                if attempt < max_retries - 1:
+                    continue  # Retry - Claude forgot to provide custom_test_logic
 
         # Accept this response
         break
