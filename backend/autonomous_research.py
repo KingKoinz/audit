@@ -1096,6 +1096,8 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
                 results = test_func(draws, parameters.get("target_number", 7), parameters.get("window_size", 30))
             elif test_method == "positional_bias":
                 results = test_func(draws, parameters.get("position", 0), feed_key)
+            elif test_method == "entropy":
+                results = test_func(draws, feed_key)
             else:
                 # Default: tests that only need draws
                 results = test_func(draws)
