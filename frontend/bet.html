@@ -3,79 +3,507 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>ENTROPY — Betting</title>
-  <link rel="stylesheet" href="/static/styles.css"/>
+  <title>ENTROPY — Prediction Arena</title>
   <link rel="stylesheet" href="/static/bet-style.css"/>
-  <!-- Solana Web3.js -->
-  <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
-  <script src="https://unpkg.com/@solana/spl-token@latest/lib/index.iife.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bn.js@5.2.1/bn.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="betting-container">
-    <h2>🎲 Predict the Next Hot Number!</h2>
-    <div class="wallet-connect">
-      <button>Connect Wallet</button>
+  <!-- Preview Banner -->
+  <div class="preview-banner">
+    <span class="preview-pill">PREVIEW</span>
+    <span>Play with test tokens — Real $ENTROPY betting coming soon</span>
+  </div>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <a href="/" class="logo-link">
+        <img src="/Entropy.png" alt="ENTROPY" class="header-logo" />
+      </a>
+      <nav class="nav-tabs">
+        <a href="/" class="nav-tab">Research Lab</a>
+        <a href="/bet" class="nav-tab active">Prediction Arena</a>
+      </nav>
     </div>
-    <div class="betting-panel">
-      <label for="bet-type">Bet Type:</label>
-      <select id="bet-type">
-        <option value="hot">Hot (2x)</option>
-        <option value="cold">Cold (3x)</option>
-        <option value="overdue">Overdue (4x)</option>
-        <option value="exact">Exact Match (10x)</option>
-      </select>
-      <label for="number">Number:</label>
-      <input type="number" id="number" min="1" max="70" />
-      <label for="amount">Amount:</label>
-      <input type="number" id="amount" min="1" />
-      <button id="place-bet">Place Bet</button>
+    <div class="header-right">
+      <div class="balance-chip">
+        <span class="balance-value" id="testBalance">0</span>
+        <span class="balance-label">$tENTROPY</span>
+      </div>
+      <button class="claim-btn" id="claimTokens">+ Claim Tokens</button>
     </div>
-    <div class="odds-pool">
-      <h3>Current Odds & Pool</h3>
-      <table>
-        <tr><th>Number</th><th>Type</th><th>Pool</th><th>Odds</th></tr>
-        <tr><td>7</td><td>Hot</td><td>120</td><td>1:5</td></tr>
-        <tr><td>12</td><td>Cold</td><td>80</td><td>1:8</td></tr>
-        <tr><td>23</td><td>Overdue</td><td>60</td><td>1:10</td></tr>
-      </table>
+  </header>
+
+  <!-- Main Layout -->
+  <div class="main-layout">
+    <!-- Left: Game Selection -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">Games</h3>
+        <div class="game-list">
+          <div class="game-item active" data-game="powerball">
+            <img src="/powerball.png" alt="Powerball" class="game-logo" />
+            <div class="game-info">
+              <span class="game-name">Powerball</span>
+              <span class="game-time" id="pb-time">Wed 10:59 PM ET</span>
+            </div>
+            <span class="game-status live">OPEN</span>
+          </div>
+          <div class="game-item" data-game="megamillions">
+            <img src="/megamillions.png" alt="Mega Millions" class="game-logo" />
+            <div class="game-info">
+              <span class="game-name">Mega Millions</span>
+              <span class="game-time" id="mm-time">Fri 11:00 PM ET</span>
+            </div>
+            <span class="game-status live">OPEN</span>
+          </div>
+          <div class="game-item disabled" data-game="pick3">
+            <img src="/illinois-lottery.png" alt="IL Pick 3" class="game-logo" />
+            <div class="game-info">
+              <span class="game-name">IL Pick 3</span>
+              <span class="game-time">Daily</span>
+            </div>
+            <span class="game-status soon">SOON</span>
+          </div>
+          <div class="game-item disabled" data-game="pick4">
+            <img src="/illinois-lottery.png" alt="IL Pick 4" class="game-logo" />
+            <div class="game-info">
+              <span class="game-name">IL Pick 4</span>
+              <span class="game-time">Daily</span>
+            </div>
+            <span class="game-status soon">SOON</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">Prediction Types</h3>
+        <div class="type-list">
+          <div class="type-item" data-type="hot">
+            <span class="type-icon hot">🔥</span>
+            <span class="type-name">Hot Number</span>
+            <span class="type-odds">2.0x</span>
+          </div>
+          <div class="type-item" data-type="cold">
+            <span class="type-icon cold">❄️</span>
+            <span class="type-name">Cold Number</span>
+            <span class="type-odds">3.0x</span>
+          </div>
+          <div class="type-item" data-type="overdue">
+            <span class="type-icon overdue">⏰</span>
+            <span class="type-name">Overdue</span>
+            <span class="type-odds">4.0x</span>
+          </div>
+          <div class="type-item" data-type="exact">
+            <span class="type-icon exact">🎯</span>
+            <span class="type-name">Exact Match</span>
+            <span class="type-odds">10.0x</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Center: Main Content -->
+    <main class="content">
+      <!-- Number Grid -->
+      <div class="card">
+        <div class="card-header">
+          <h2>Select Your Number</h2>
+          <span class="card-subtitle" id="selectedGame">Powerball • 1-69</span>
+        </div>
+        <div class="number-grid" id="numberGrid">
+          <!-- Numbers 1-69 will be generated by JS -->
+        </div>
+      </div>
+
+      <!-- Active Predictions -->
+      <div class="card">
+        <div class="card-header">
+          <h2>Your Active Predictions</h2>
+          <span class="card-subtitle" id="activeCount">0 active</span>
+        </div>
+        <div class="predictions-list" id="predictionsList">
+          <div class="empty-state">
+            <span class="empty-icon">📋</span>
+            <span>No predictions yet</span>
+            <span class="empty-hint">Select a number above to get started</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Leaderboard -->
+      <div class="card">
+        <div class="card-header">
+          <h2>🏆 Leaderboard</h2>
+          <span class="card-subtitle">This Week</span>
+        </div>
+        <div class="leaderboard" id="leaderboard">
+          <div class="leader-row gold">
+            <span class="leader-rank">1</span>
+            <span class="leader-name">@entropywhale</span>
+            <span class="leader-score">+2,450</span>
+          </div>
+          <div class="leader-row silver">
+            <span class="leader-rank">2</span>
+            <span class="leader-name">@luckydefi</span>
+            <span class="leader-score">+1,890</span>
+          </div>
+          <div class="leader-row bronze">
+            <span class="leader-rank">3</span>
+            <span class="leader-name">@chaosmaster</span>
+            <span class="leader-score">+1,230</span>
+          </div>
+          <div class="leader-row">
+            <span class="leader-rank">4</span>
+            <span class="leader-name">@memelord</span>
+            <span class="leader-score">+980</span>
+          </div>
+          <div class="leader-row">
+            <span class="leader-rank">5</span>
+            <span class="leader-name">@randomking</span>
+            <span class="leader-score">+750</span>
+          </div>
+        </div>
+        <div class="leaderboard-promo">
+          Top predictors get airdropped real $ENTROPY at launch! 🚀
+        </div>
+      </div>
+    </main>
+
+    <!-- Right: Bet Slip -->
+    <aside class="betslip">
+      <div class="betslip-header">
+        <h3>Bet Slip</h3>
+        <span class="betslip-count" id="slipCount">0</span>
+      </div>
+
+      <div class="betslip-body" id="betslipBody">
+        <div class="betslip-empty">
+          <span>Click a number to add prediction</span>
+        </div>
+      </div>
+
+      <div class="betslip-footer">
+        <div class="slip-row">
+          <span>Stake</span>
+          <div class="stake-input-wrap">
+            <input type="number" id="stakeInput" value="100" min="1" />
+            <span class="stake-token">$tENTROPY</span>
+          </div>
+        </div>
+        <div class="quick-stakes">
+          <button class="quick-stake" data-amount="50">50</button>
+          <button class="quick-stake" data-amount="100">100</button>
+          <button class="quick-stake" data-amount="250">250</button>
+          <button class="quick-stake" data-amount="500">500</button>
+          <button class="quick-stake" data-amount="1000">MAX</button>
+        </div>
+        <div class="slip-row total">
+          <span>Potential Return</span>
+          <span class="potential-return" id="potentialReturn">0</span>
+        </div>
+        <button class="place-bet-btn" id="placeBetBtn" disabled>
+          Place Prediction
+        </button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Community & Roadmap Section -->
+  <div class="bottom-section">
+    <div class="bottom-card">
+      <h3>💡 Community Ideas</h3>
+      <div class="suggestions-compact" id="suggestionsCompact">
+        <div class="suggestion-chip">🔥 12 — IL Pick 3/4 games</div>
+        <div class="suggestion-chip">🔥 8 — Parlay bets</div>
+        <div class="suggestion-chip">🔥 6 — AI smart picks</div>
+      </div>
+      <div class="suggestion-form-compact">
+        <input type="text" id="suggestionInput" placeholder="Share your idea..." />
+        <button id="submitSuggestion">Submit</button>
+      </div>
     </div>
 
-    <!-- Wallet Generator Section -->
-    <div class="wallet-gen-section" style="margin-top:32px; background:#1a202b; border-radius:12px; padding:18px 20px; box-shadow:0 2px 8px #0003;">
-      <h3 style="color:#00ff88;">🔐 Generate a Safe Betting Wallet</h3>
-      <p style="color:#b9ffcc; font-size:1.05rem;">For your security, do <b>NOT</b> use your main wallet. Generate a new wallet for betting and only send what you’re willing to play with.</p>
-      <button id="generate-wallet" style="background:linear-gradient(90deg,#00ff88 0%,#6496ff 100%);color:#181c24;border:none;border-radius:10px;padding:10px 22px;font-weight:800;font-size:1.1rem;cursor:pointer;box-shadow:0 2px 8px #00ff8840;">Generate New Wallet</button>
-      <div id="wallet-output" style="margin-top:18px;display:none;background:#232a36;padding:14px 12px;border-radius:8px;color:#fff;font-size:1rem;"></div>
-      <div style="margin-top:10px;color:#ff6b35;font-size:0.98rem;">⚠️ Save your private key securely. Never share it with anyone. If you lose it, you lose access to your funds!</div>
+    <div class="bottom-card">
+      <h3>🚀 Roadmap</h3>
+      <div class="roadmap-compact">
+        <div class="road-item done">✅ AI Research Lab</div>
+        <div class="road-item done">✅ Preview Arena</div>
+        <div class="road-item current">🔨 Leaderboard System</div>
+        <div class="road-item">📋 IL Pick 3/4</div>
+        <div class="road-item">📋 $ENTROPY Integration</div>
+        <div class="road-item">📋 Solana Contract</div>
+      </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-    <script>
-      document.getElementById('generate-wallet').onclick = function() {
-        const wallet = ethers.Wallet.createRandom();
-        const output = document.getElementById('wallet-output');
-        output.style.display = 'block';
-        output.innerHTML = `<b>Address:</b> <span style='color:#00ff88;'>${wallet.address}</span><br><b>Private Key:</b> <span style='color:#ff4444;'>${wallet.privateKey}</span>`;
-      };
-    </script>
-    <div class="user-bets">
-      <h3>Your Bets</h3>
-      <ul>
-        <li>Hot #7 — 10 tokens</li>
-        <li>Cold #12 — 5 tokens</li>
-      </ul>
-    </div>
-    <div class="leaderboard">
-      <h3>🏆 Top Predictors</h3>
-      <ol>
-        <li>@memelord — 120 tokens won</li>
-        <li>@luckyuser — 90 tokens won</li>
-        <li>@entropymaxi — 70 tokens won</li>
-      </ol>
+
+    <div class="bottom-card">
+      <h3>📖 How It Works</h3>
+      <div class="how-compact">
+        <div class="how-step"><strong>1.</strong> Pick a prediction type</div>
+        <div class="how-step"><strong>2.</strong> Select your number</div>
+        <div class="how-step"><strong>3.</strong> Set your stake</div>
+        <div class="how-step"><strong>4.</strong> Win if it hits!</div>
+      </div>
     </div>
   </div>
 
-  <!-- ENTROPY Betting Client -->
-  <script src="/static/entropy-betting.js"></script>
+  <!-- Disclaimer -->
+  <footer class="disclaimer">
+    <strong>Preview Mode:</strong> Test tokens have no real value. For entertainment only.
+    Real $ENTROPY integration pending regulatory review.
+  </footer>
+
+  <script>
+    // ===== STATE =====
+    const state = {
+      balance: parseInt(localStorage.getItem('entropy_balance') || '0'),
+      selectedGame: 'powerball',
+      selectedType: 'hot',
+      selectedNumber: null,
+      predictions: JSON.parse(localStorage.getItem('entropy_predictions') || '[]'),
+      multipliers: { hot: 2, cold: 3, overdue: 4, exact: 10 }
+    };
+
+    // ===== ELEMENTS =====
+    const $ = (s) => document.querySelector(s);
+    const $$ = (s) => document.querySelectorAll(s);
+
+    // ===== INIT =====
+    function init() {
+      renderNumberGrid();
+      updateBalance();
+      updateBetslip();
+      renderPredictions();
+      bindEvents();
+      fetchSchedule();
+    }
+
+    // ===== RENDER NUMBER GRID =====
+    function renderNumberGrid() {
+      const grid = $('#numberGrid');
+      const max = state.selectedGame === 'megamillions' ? 70 : 69;
+      $('#selectedGame').textContent = state.selectedGame === 'megamillions'
+        ? 'Mega Millions • 1-70'
+        : 'Powerball • 1-69';
+
+      grid.innerHTML = '';
+      for (let i = 1; i <= max; i++) {
+        const btn = document.createElement('button');
+        btn.className = 'num-btn' + (state.selectedNumber === i ? ' selected' : '');
+        btn.textContent = i;
+        btn.onclick = () => selectNumber(i);
+        grid.appendChild(btn);
+      }
+    }
+
+    // ===== SELECT NUMBER =====
+    function selectNumber(num) {
+      state.selectedNumber = num;
+      $$('.num-btn').forEach(b => b.classList.remove('selected'));
+      $$('.num-btn')[num - 1]?.classList.add('selected');
+      updateBetslip();
+    }
+
+    // ===== UPDATE BETSLIP =====
+    function updateBetslip() {
+      const body = $('#betslipBody');
+      const btn = $('#placeBetBtn');
+      const stake = parseInt($('#stakeInput').value) || 0;
+      const mult = state.multipliers[state.selectedType];
+
+      if (state.selectedNumber) {
+        body.innerHTML = `
+          <div class="slip-item">
+            <div class="slip-item-header">
+              <span class="slip-game">${state.selectedGame.toUpperCase()}</span>
+              <button class="slip-remove" onclick="clearSlip()">×</button>
+            </div>
+            <div class="slip-item-body">
+              <span class="slip-type ${state.selectedType}">${state.selectedType.toUpperCase()}</span>
+              <span class="slip-number">#${state.selectedNumber}</span>
+            </div>
+            <div class="slip-item-odds">
+              <span>@ ${mult}.0x</span>
+            </div>
+          </div>
+        `;
+        btn.disabled = false;
+        $('#slipCount').textContent = '1';
+      } else {
+        body.innerHTML = '<div class="betslip-empty"><span>Click a number to add prediction</span></div>';
+        btn.disabled = true;
+        $('#slipCount').textContent = '0';
+      }
+
+      $('#potentialReturn').textContent = (stake * mult).toLocaleString() + ' $tENTROPY';
+    }
+
+    // ===== CLEAR SLIP =====
+    function clearSlip() {
+      state.selectedNumber = null;
+      $$('.num-btn').forEach(b => b.classList.remove('selected'));
+      updateBetslip();
+    }
+
+    // ===== PLACE BET =====
+    function placeBet() {
+      const stake = parseInt($('#stakeInput').value) || 0;
+      if (!state.selectedNumber || stake < 1) return;
+      if (stake > state.balance) {
+        alert('Insufficient balance! Claim more tokens.');
+        return;
+      }
+
+      // Deduct balance
+      state.balance -= stake;
+      localStorage.setItem('entropy_balance', state.balance);
+      updateBalance();
+
+      // Save prediction
+      const pred = {
+        id: Date.now(),
+        game: state.selectedGame,
+        type: state.selectedType,
+        number: state.selectedNumber,
+        stake,
+        mult: state.multipliers[state.selectedType],
+        timestamp: new Date().toISOString()
+      };
+      state.predictions.unshift(pred);
+      localStorage.setItem('entropy_predictions', JSON.stringify(state.predictions.slice(0, 50)));
+      renderPredictions();
+
+      // Reset
+      clearSlip();
+
+      // Feedback
+      const btn = $('#placeBetBtn');
+      btn.textContent = '✓ Placed!';
+      btn.style.background = '#00c853';
+      setTimeout(() => {
+        btn.textContent = 'Place Prediction';
+        btn.style.background = '';
+      }, 1500);
+    }
+
+    // ===== RENDER PREDICTIONS =====
+    function renderPredictions() {
+      const list = $('#predictionsList');
+      const active = state.predictions.slice(0, 5);
+      $('#activeCount').textContent = active.length + ' active';
+
+      if (!active.length) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <span class="empty-icon">📋</span>
+            <span>No predictions yet</span>
+            <span class="empty-hint">Select a number above to get started</span>
+          </div>
+        `;
+        return;
+      }
+
+      list.innerHTML = active.map(p => `
+        <div class="pred-row">
+          <span class="pred-type ${p.type}">${p.type.toUpperCase()}</span>
+          <span class="pred-number">#${p.number}</span>
+          <span class="pred-game">${p.game}</span>
+          <span class="pred-stake">${p.stake} @ ${p.mult}x</span>
+        </div>
+      `).join('');
+    }
+
+    // ===== UPDATE BALANCE =====
+    function updateBalance() {
+      $('#testBalance').textContent = state.balance.toLocaleString();
+    }
+
+    // ===== BIND EVENTS =====
+    function bindEvents() {
+      // Claim tokens
+      $('#claimTokens').onclick = () => {
+        if (state.balance < 100) {
+          state.balance += 1000;
+          localStorage.setItem('entropy_balance', state.balance);
+          updateBalance();
+          $('#claimTokens').textContent = '✓ Claimed!';
+          setTimeout(() => $('#claimTokens').textContent = '+ Claim Tokens', 2000);
+        } else {
+          alert('Use your tokens first! Balance must be under 100 to claim more.');
+        }
+      };
+
+      // Game selection
+      $$('.game-item:not(.disabled)').forEach(item => {
+        item.onclick = () => {
+          $$('.game-item').forEach(i => i.classList.remove('active'));
+          item.classList.add('active');
+          state.selectedGame = item.dataset.game;
+          state.selectedNumber = null;
+          renderNumberGrid();
+          updateBetslip();
+        };
+      });
+
+      // Type selection
+      $$('.type-item').forEach(item => {
+        item.onclick = () => {
+          $$('.type-item').forEach(i => i.classList.remove('active'));
+          item.classList.add('active');
+          state.selectedType = item.dataset.type;
+          updateBetslip();
+        };
+      });
+      // Default active
+      $('.type-item[data-type="hot"]').classList.add('active');
+
+      // Stake input
+      $('#stakeInput').oninput = updateBetslip;
+
+      // Quick stakes
+      $$('.quick-stake').forEach(btn => {
+        btn.onclick = () => {
+          const amt = btn.dataset.amount === '1000' ? state.balance : parseInt(btn.dataset.amount);
+          $('#stakeInput').value = amt;
+          updateBetslip();
+        };
+      });
+
+      // Place bet
+      $('#placeBetBtn').onclick = placeBet;
+
+      // Suggestion
+      $('#submitSuggestion').onclick = () => {
+        const input = $('#suggestionInput');
+        if (input.value.trim()) {
+          const chips = $('#suggestionsCompact');
+          const chip = document.createElement('div');
+          chip.className = 'suggestion-chip new';
+          chip.textContent = '🔥 1 — ' + input.value.slice(0, 30);
+          chips.insertBefore(chip, chips.firstChild);
+          input.value = '';
+        }
+      };
+    }
+
+    // ===== FETCH SCHEDULE =====
+    async function fetchSchedule() {
+      try {
+        const res = await fetch('/api/arena/schedule');
+        const data = await res.json();
+        if (data.powerball) {
+          $('#pb-time').textContent = `${data.powerball.next_day} ${data.powerball.draw_time}`;
+        }
+        if (data.megamillions) {
+          $('#mm-time').textContent = `${data.megamillions.next_day} ${data.megamillions.draw_time}`;
+        }
+      } catch (e) {
+        console.warn('Could not fetch schedule');
+      }
+    }
+
+    // GO
+    init();
+  </script>
 </body>
 </html>

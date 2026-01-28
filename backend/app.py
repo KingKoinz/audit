@@ -55,6 +55,10 @@ def powerball_logo():
 def megamillions_logo():
     return FileResponse(".github/logo_MM_233x110.png")
 
+@app.get("/illinois-lottery.png")
+def illinois_logo():
+    return FileResponse("illinois-lottery.png")
+
 @app.get("/api/health")
 def health():
     return {"ok": True}
@@ -492,3 +496,71 @@ def validate_prediction_endpoint(feed_key: str, draw_date: str, numbers: str):
         tb = traceback.format_exc()
         print(f"[VALIDATE ERROR] {tb}")
         return {"error": str(e), "feed": feed_key}
+
+
+# ===== PREDICTION ARENA (BETTING PREVIEW) =====
+
+@app.get("/bet", response_class=HTMLResponse)
+def betting_page():
+    """Serve the prediction arena / betting preview page."""
+    return FileResponse("frontend/bet.html")
+
+
+@app.get("/api/arena/schedule")
+def arena_schedule():
+    """Get next draw times for all games in the arena."""
+    from backend.schedule import get_next_draw_time
+
+    return {
+        "powerball": get_next_draw_time("powerball"),
+        "megamillions": get_next_draw_time("megamillions"),
+        # Future: Add more games here
+        # "il_pick3": get_next_draw_time("il_pick3"),
+    }
+
+
+# In-memory suggestions storage (for demo - would use DB in production)
+_suggestions = [
+    {"id": 1, "author": "cryptodev", "text": "Add IL Pick 3 and Pick 4 games for more frequent betting action!", "votes": 12, "timestamp": "2026-01-25"},
+    {"id": 2, "author": "degenking", "text": "Parlay bets - combine multiple predictions for bigger multipliers", "votes": 8, "timestamp": "2026-01-26"},
+    {"id": 3, "author": "numberswiz", "text": "Show AI's hot/cold classifications directly on betting page", "votes": 6, "timestamp": "2026-01-27"},
+]
+_suggestion_id = 4
+
+
+@app.get("/api/arena/suggestions")
+def get_suggestions():
+    """Get community suggestions for the arena."""
+    return {"suggestions": sorted(_suggestions, key=lambda x: x["votes"], reverse=True)}
+
+
+@app.post("/api/arena/suggestions")
+def add_suggestion(author: str = "Anonymous", text: str = ""):
+    """Add a new community suggestion."""
+    global _suggestion_id
+
+    if not text or len(text.strip()) < 5:
+        return {"error": "Suggestion text too short"}
+
+    import datetime
+    suggestion = {
+        "id": _suggestion_id,
+        "author": author.replace("@", "")[:20] or "Anonymous",
+        "text": text[:500],
+        "votes": 1,
+        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d")
+    }
+    _suggestions.append(suggestion)
+    _suggestion_id += 1
+
+    return {"success": True, "suggestion": suggestion}
+
+
+@app.post("/api/arena/suggestions/{suggestion_id}/vote")
+def vote_suggestion(suggestion_id: int):
+    """Upvote a suggestion."""
+    for s in _suggestions:
+        if s["id"] == suggestion_id:
+            s["votes"] += 1
+            return {"success": True, "votes": s["votes"]}
+    return {"error": "Suggestion not found"}
