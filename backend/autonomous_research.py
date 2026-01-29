@@ -1287,7 +1287,10 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
     # ENHANCE VERIFICATION MODE REASONING WITH ACTUAL RESULTS
     if in_pursuit_mode:
         viable_status = "✓ SIGNIFICANT" if results["viable"] else "✗ NOT SIGNIFICANT"
-        hypothesis_data["reasoning"] = f"Verification attempt {pursuit['pursuit_attempts'] + 1}/5: {viable_status} | p={results['p_value']:.6f}, effect={results['effect_size']:.4f}"
+        original_hypothesis = pursuit['target_hypothesis']
+
+        # Show what's being tested + verification attempt results
+        hypothesis_data["reasoning"] = f"[VERIFICATION] Re-testing: {original_hypothesis[:90]}... | Attempt {pursuit['pursuit_attempts'] + 1}/5: {viable_status} | p={results['p_value']:.6f}, effect={results['effect_size']:.4f}"
 
     # Track persistence for verification
     persistence_count = track_persistence(feed_key, hypothesis_data["hypothesis"], results["p_value"])
@@ -1424,10 +1427,16 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
 
     # Convert all numpy types to native Python types for JSON serialization
     # Ensure all required fields are present with defaults if missing
+
+    # In verification mode, make sure the original hypothesis is shown
+    display_hypothesis = hypothesis_data.get("hypothesis", "No hypothesis generated.")
+    if in_pursuit_mode:
+        display_hypothesis = pursuit.get('target_hypothesis', display_hypothesis)
+
     return convert_numpy_types({
         "status": "success",
         "iteration": iteration,
-        "hypothesis": hypothesis_data.get("hypothesis", "No hypothesis generated."),
+        "hypothesis": display_hypothesis,
         "reasoning": hypothesis_data.get("reasoning", "No reasoning provided."),
         "test_method": test_method or "unknown",
         "results": results or {},
@@ -1453,6 +1462,10 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
             "active": final_pursuit_state.get("is_active", False),
             "message": pursuit_mode_message or "",
             "attempts": final_pursuit_state.get("pursuit_attempts", 0) if final_pursuit_state.get("is_active", False) else 0,
-            "max_attempts": 5
+            "max_attempts": 5,
+            # Include the original hypothesis being verified
+            "original_hypothesis": final_pursuit_state.get("target_hypothesis", "") if final_pursuit_state.get("is_active", False) else "",
+            "original_test_method": final_pursuit_state.get("target_test_method", "") if final_pursuit_state.get("is_active", False) else "",
+            "verification_status": f"Testing pattern from discovery attempt {final_pursuit_state.get('discovery_iteration', '?')}" if final_pursuit_state.get("is_active", False) else ""
         }
     })
