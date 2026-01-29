@@ -961,6 +961,67 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
                 if attempt < max_retries - 1:
                     continue  # Retry - Claude forgot to provide custom_test_logic
 
+        # DIVERSITY CHECK INSIDE LOOP - can trigger retry
+        if not in_pursuit_mode:
+            # Detect current hypothesis category
+            hypothesis_lower = hypothesis_data.get("hypothesis", "").lower()
+            current_category = None
+
+            # Category keywords (must include all exploit types)
+            category_keywords = {
+                'number_theory': ['prime', 'fibonacci', 'square', 'palindrome', 'divisible', 'digit', 'modulo', 'factorial', 'triangular'],
+                'temporal': ['day', 'week', 'month', 'year', 'season', 'time', 'date', 'weekend', 'weekday'],
+                'positional': ['first', 'last', 'position', 'slot', 'order', 'sequence', 'spread', 'range'],
+                'statistical': ['correlation', 'autocorrelation', 'recency', 'streak', 'runs', 'bias', 'wear'],
+                'structural': ['sum', 'range', 'even', 'odd', 'consecutive', 'cluster', 'pair', 'triplet', 'gap', 'spacing'],
+                'draw_mechanics': ['ball', 'wear', 'weight', 'degradation', 'machine', 'mechanism', 'physical', 'temperature', 'pressure', 'aging', 'replacement'],
+                'bonus_mechanics': ['bonus', 'powerball', 'mega ball', 'mega_ball', 'ball bias', 'separate pool', 'different mechanism'],
+                'historical_transitions': ['transition', 'change', 'upgrade', 'replacement', 'rule change', 'equipment change', 'jackpot level', 'period change', 'window']
+            }
+
+            for category, keywords in category_keywords.items():
+                if any(keyword in hypothesis_lower for keyword in keywords):
+                    current_category = category
+                    break
+
+            # Check similarity to recent history
+            same_category_count = 0
+            for h in history[-10:]:
+                hist_lower = h.get("hypothesis", "").lower()
+
+                # Word overlap similarity
+                hyp_words = set(hypothesis_lower.split())
+                hist_words = set(hist_lower.split())
+                if hyp_words and hist_words:
+                    overlap = len(hyp_words & hist_words) / len(hyp_words | hist_words)
+                    if overlap > 0.5:
+                        # Too similar to recent test
+                        if attempt < max_retries - 1:
+                            continue  # Retry with different hypothesis
+
+                # Category similarity
+                if current_category:
+                    hist_category = None
+                    for category, keywords in category_keywords.items():
+                        if any(keyword in hist_lower for keyword in keywords):
+                            hist_category = category
+                            break
+                    if hist_category == current_category:
+                        same_category_count += 1
+
+            # STRICT: Reject if same category appears 3+ times in last 10
+            if same_category_count >= 3:
+                if attempt < max_retries - 1:
+                    continue  # Retry with different category
+                else:
+                    # Max retries hit - return error instead of using poor hypothesis
+                    return {
+                        "status": "diversity_rejected",
+                        "message": f"❌ DIVERSITY FILTER: Failed to generate diverse hypothesis. {same_category_count} recent tests in {current_category} category.",
+                        "hypothesis": hypothesis_data.get("hypothesis", ""),
+                        "viable": False
+                    }
+
         # Accept this response
         break
 
@@ -1039,12 +1100,15 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
     if not hypothesis_data.get("test_method"):
         validation_errors.append("Missing test_method field")
     
-    # Diversity scoring - check similarity to recent tests
-    diversity_score = 10
-    hypothesis_lower = hypothesis_data.get("hypothesis", "").lower()
-    similar_count = 0
+    # Calculate diversity metrics for logging (post-acceptance)
+    # Diversity check already happened in loop - this is just for display/logging
+    diversity_score = 5  # Default
+    same_category_count = 0
+    current_category = "unknown"
+    diversity_warning = ""
 
-    # Expanded similarity detection with category keywords
+    # Recalculate for logging purposes
+    hypothesis_lower = hypothesis_data.get("hypothesis", "").lower()
     category_keywords = {
         'number_theory': ['prime', 'fibonacci', 'square', 'palindrome', 'divisible', 'digit', 'modulo', 'factorial', 'triangular'],
         'temporal': ['day', 'week', 'month', 'year', 'season', 'time', 'date', 'weekend', 'weekday'],
@@ -1056,104 +1120,22 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
         'historical_transitions': ['transition', 'change', 'upgrade', 'replacement', 'rule change', 'equipment change', 'jackpot level', 'period change', 'window']
     }
 
-    # Detect current hypothesis category
-    current_category = None
     for category, keywords in category_keywords.items():
         if any(keyword in hypothesis_lower for keyword in keywords):
             current_category = category
             break
 
-    # Check similarity to recent history
-    same_category_count = 0
-    for h in history[-10:]:  # Check last 10
+    for h in history[-10:]:
         hist_lower = h.get("hypothesis", "").lower()
-
-        # Word overlap similarity
-        hyp_words = set(hypothesis_lower.split())
-        hist_words = set(hist_lower.split())
-        if hyp_words and hist_words:
-            overlap = len(hyp_words & hist_words) / len(hyp_words | hist_words)
-            if overlap > 0.5:  # More than 50% word overlap
-                diversity_score -= 3  # Increased penalty
-                similar_count += 1
-
-        # Category similarity (extra penalty for staying in same category)
         if current_category:
-            hist_category = None
             for category, keywords in category_keywords.items():
                 if any(keyword in hist_lower for keyword in keywords):
-                    hist_category = category
+                    if category == current_category:
+                        same_category_count += 1
                     break
-            if hist_category == current_category:
-                same_category_count += 1
 
-    # Heavy penalty for testing same category repeatedly
-    if same_category_count >= 3:
-        diversity_score -= 2 * same_category_count  # Exponential penalty
-
-    diversity_score = max(1, min(10, diversity_score))
-
-    # ENFORCE DIVERSITY ONLY IN EXPLORATION MODE
-    # Skip this entirely if in pursuit/verification mode
-    if not in_pursuit_mode:
-        if same_category_count >= 3 and diversity_score <= 3:
-            # FALLBACK: Auto-convert to underused method instead of rejecting
-            if underused_methods:
-                current_method = hypothesis_data.get("test_method", "unknown")
-                fallback_method = underused_methods[0]
-                print(f"[DIVERSITY FALLBACK] Switching from {current_method} to underused {fallback_method}")
-
-                # Update hypothesis_data with new method
-                hypothesis_data["test_method"] = fallback_method
-
-                # Generate appropriate parameters for fallback method
-                fallback_params = {}
-                if fallback_method == 'digit_ending':
-                    import random
-                    fallback_params = {'digit': random.randint(0, 9)}
-                elif fallback_method == 'sum_range':
-                    fallback_params = {'low': 100, 'high': 150}
-
-                hypothesis_data["parameters"] = fallback_params
-
-                # Update hypothesis to reflect the change
-                hypothesis_data["hypothesis"] = f"Testing pattern via {fallback_method} (diversity enforced)"
-
-                # Continue with fallback method instead of rejecting
-                diversity_warning = f"⚠️ DIVERSITY OVERRIDE: Switched from {current_category} category to {fallback_method} method to enforce variety"
-            else:
-                # No underused methods available - still reject but provide fallback message
-                return {
-                    "status": "diversity_rejected",
-                    "message": f"❌ DIVERSITY FILTER: Rejected low-diversity hypothesis - {same_category_count} recent tests in {current_category} category (diversity={diversity_score}/10). Forcing category switch.",
-                    "hypothesis": hypothesis_data.get("hypothesis", ""),
-                    "rejection_reason": f"Category repetition ({same_category_count}x {current_category}) + low diversity score ({diversity_score})",
-                    "viable": False
-                }
-
-    # Check if creativity score matches diversity
-    ai_creativity = hypothesis_data.get("creativity_score", 5)
-    diversity_warning = ""
-    category_msg = f" ({current_category} category)" if current_category else ""
-    # Show stuck warning only once per occurrence, then suppress until next new stuck event
-    stuck_flag_key = f"_stuck_flag_{feed_key}"
-    global_vars = globals()
-    if same_category_count >= 4:
-        if not global_vars.get(stuck_flag_key):
-            diversity_warning = f"STUCK IN PATTERN: {same_category_count} recent tests in {current_category} category. Switch to temporal, positional, statistical, or chaos patterns!"
-            global_vars[stuck_flag_key] = True
-        else:
-            diversity_warning = ""
-    else:
-        if global_vars.get(stuck_flag_key):
-            global_vars[stuck_flag_key] = False
-    # Show warnings (even if in pursuit mode, for logging)
     if in_pursuit_mode and same_category_count >= 3:
-        diversity_warning = f"[VERIFICATION MODE] Allowing category repetition ({same_category_count}x {current_category}) to verify pattern persistence"
-    elif diversity_score < 3 and ai_creativity > 8:
-        diversity_warning = f"Very low diversity (score={diversity_score}, {similar_count} similar patterns{category_msg}) but AI claims high creativity (score={ai_creativity})"
-    elif diversity_score < 5 and ai_creativity > 7:
-        diversity_warning = f"Moderate diversity concern (diversity={diversity_score}, creativity={ai_creativity}{category_msg})"
+        diversity_warning = f"[VERIFICATION MODE] Testing same {current_category} category {same_category_count}x (allowed for verification)"
     
     # Execute the test
     test_method = hypothesis_data["test_method"]
