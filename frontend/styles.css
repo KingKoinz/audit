@@ -693,3 +693,111 @@ button{ cursor:pointer; }
 .number-item.flashing {
   animation: number-flash 0.5s ease-in-out 3;
 }
+
+/* ===== LOTTERY BALL GRAPHICS ===== */
+
+.lottery-prediction-container {
+  background: linear-gradient(180deg, rgba(20, 20, 40, 0.8), rgba(30, 30, 50, 0.8));
+  border: 2px solid #ffd59a;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 12px;
+  backdrop-filter: blur(8px);
+}
+
+.lottery-title {
+  font-size: 14px;
+  color: #ffd59a;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lottery-balls-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.lottery-ball {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 18px;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  animation: bounce 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards;
+}
+
+.lottery-ball:nth-child(1) { animation-delay: 0.1s; }
+.lottery-ball:nth-child(2) { animation-delay: 0.2s; }
+.lottery-ball:nth-child(3) { animation-delay: 0.3s; }
+.lottery-ball:nth-child(4) { animation-delay: 0.4s; }
+.lottery-ball:nth-child(5) { animation-delay: 0.5s; }
+.lottery-ball:nth-child(6) { animation-delay: 0.6s; }
+
+/* Powerball colors */
+.lottery-ball.powerball-main {
+  background: linear-gradient(135deg, #ff6b35, #ff9f43);
+  border: 2px solid #fff;
+}
+
+.lottery-ball.powerball-bonus {
+  background: linear-gradient(135deg, #ff0000, #cc0000);
+  border: 3px solid #fff;
+  width: 52px;
+  height: 52px;
+  font-size: 20px;
+  margin-left: 4px;
+}
+
+/* Mega Millions colors */
+.lottery-ball.megamillions-main {
+  background: linear-gradient(135deg, #ffd700, #ffed4e);
+  border: 2px solid #333;
+  color: #333;
+}
+
+.lottery-ball.megamillions-bonus {
+  background: linear-gradient(135deg, #00a020, #00d644);
+  border: 3px solid #fff;
+  width: 52px;
+  height: 52px;
+  font-size: 20px;
+  margin-left: 4px;
+}
+
+@keyframes bounce {
+  0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+  50% { transform: scale(1.2) rotate(10deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.lottery-reasoning {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: rgba(100, 150, 255, 0.08);
+  border-left: 3px solid #6496ff;
+  border-radius: 4px;
+  line-height: 1.5;
+}
+
+.lottery-disclaimer {
+  font-size: 11px;
+  color: var(--warn);
+  margin-top: 8px;
+  font-style: italic;
+  text-align: center;
+}

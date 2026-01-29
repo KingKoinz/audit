@@ -638,6 +638,94 @@ def create_prediction_snapshot(feed_key: str):
         return {"error": str(e), "feed": feed_key}
 
 
+@app.get("/api/lottery-prediction/{feed_key}")
+def get_lottery_prediction(feed_key: str):
+    """
+    Get AI-generated lottery number prediction based on viable CANDIDATE patterns.
+    Synthesizes top patterns into actual lottery predictions (5 main numbers + bonus).
+
+    DISCLAIMER: For research analysis only. Not gambling advice.
+    All lottery numbers have equal probability in each draw.
+    """
+    from backend.lottery_predictions import (
+        get_top_candidate_patterns,
+        synthesize_lottery_prediction,
+        save_lottery_prediction,
+        get_latest_lottery_prediction
+    )
+    from backend.audit import RANGES
+    from backend.schedule import get_next_draw_time
+    import datetime
+
+    try:
+        # Get feed configuration
+        if feed_key not in RANGES:
+            return {"error": f"Unknown feed: {feed_key}"}
+
+        max_num = RANGES[feed_key]["main_max"]
+        bonus_max = RANGES[feed_key]["bonus_max"]
+
+        # Get next draw date
+        next_draw_info = get_next_draw_time(feed_key)
+        next_draw_date = next_draw_info.get("next_date", "")
+
+        # Check if we already have a prediction for this draw
+        latest_pred = get_latest_lottery_prediction(feed_key)
+        if latest_pred and latest_pred.get("draw_date", "").startswith(next_draw_date):
+            # Return existing prediction
+            return {
+                "feed": feed_key,
+                "draw_date": next_draw_date,
+                "prediction": {
+                    "numbers": latest_pred.get("numbers", []),
+                    "bonus": latest_pred.get("bonus"),
+                    "reasoning": latest_pred.get("reasoning", "")
+                },
+                "status": "existing"
+            }
+
+        # Generate new prediction from CANDIDATE patterns
+        patterns = get_top_candidate_patterns(feed_key, limit=20)
+
+        if not patterns:
+            return {
+                "feed": feed_key,
+                "draw_date": next_draw_date,
+                "prediction": None,
+                "message": "No viable CANDIDATE patterns yet. System still building research..."
+            }
+
+        prediction = synthesize_lottery_prediction(feed_key, patterns, max_num, bonus_max)
+
+        # Save prediction
+        save_lottery_prediction(
+            feed_key=feed_key,
+            draw_date=next_draw_date,
+            numbers=prediction["numbers"],
+            bonus=prediction["bonus"],
+            reasoning=prediction["reasoning"]
+        )
+
+        return {
+            "feed": feed_key,
+            "draw_date": next_draw_date,
+            "prediction": {
+                "numbers": prediction["numbers"],
+                "bonus": prediction["bonus"],
+                "reasoning": prediction["reasoning"]
+            },
+            "patterns_used": prediction.get("pattern_count", len(patterns)),
+            "status": "generated",
+            "disclaimer": "Research analysis only - not gambling advice"
+        }
+
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[LOTTERY PREDICTION ERROR] {tb}")
+        return {"error": str(e), "feed": feed_key}
+
+
 @app.post("/api/predictions/validate/{feed_key}")
 def validate_prediction_endpoint(feed_key: str, draw_date: str, numbers: str):
     """
