@@ -1084,14 +1084,40 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
     # Skip this entirely if in pursuit/verification mode
     if not in_pursuit_mode:
         if same_category_count >= 3 and diversity_score <= 3:
-            # This hypothesis is too similar - reject it and force regeneration
-            return {
-                "status": "diversity_rejected",
-                "message": f"❌ DIVERSITY FILTER: Rejected low-diversity hypothesis - {same_category_count} recent tests in {current_category} category (diversity={diversity_score}/10). Forcing category switch.",
-                "hypothesis": hypothesis_data.get("hypothesis", ""),
-                "rejection_reason": f"Category repetition ({same_category_count}x {current_category}) + low diversity score ({diversity_score})",
-                "viable": False
-            }
+            # FALLBACK: Auto-convert to underused method instead of rejecting
+            if underused_methods:
+                fallback_method = underused_methods[0]
+                print(f"[DIVERSITY FALLBACK] Switching from {test_method} to underused {fallback_method}")
+
+                # Update hypothesis_data with new method
+                hypothesis_data["test_method"] = fallback_method
+                test_method = fallback_method
+
+                # Generate appropriate parameters for fallback method
+                fallback_params = {}
+                if fallback_method == 'digit_ending':
+                    import random
+                    fallback_params = {'digit': random.randint(0, 9)}
+                elif fallback_method == 'sum_range':
+                    fallback_params = {'low': 100, 'high': 150}
+
+                hypothesis_data["parameters"] = fallback_params
+                parameters = fallback_params
+
+                # Update hypothesis to reflect the change
+                hypothesis_data["hypothesis"] = f"Testing pattern via {fallback_method} (diversity enforced)"
+
+                # Continue with fallback method instead of rejecting
+                diversity_warning = f"⚠️ DIVERSITY OVERRIDE: Switched from {current_category} category to {fallback_method} method to enforce variety"
+            else:
+                # No underused methods available - still reject but provide fallback message
+                return {
+                    "status": "diversity_rejected",
+                    "message": f"❌ DIVERSITY FILTER: Rejected low-diversity hypothesis - {same_category_count} recent tests in {current_category} category (diversity={diversity_score}/10). Forcing category switch.",
+                    "hypothesis": hypothesis_data.get("hypothesis", ""),
+                    "rejection_reason": f"Category repetition ({same_category_count}x {current_category}) + low diversity score ({diversity_score})",
+                    "viable": False
+                }
 
     # Check if creativity score matches diversity
     ai_creativity = hypothesis_data.get("creativity_score", 5)
@@ -1229,6 +1255,11 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
         results["effect_size"] = 0.0
     if "viable" not in results:
         results["viable"] = False
+
+    # ENHANCE VERIFICATION MODE REASONING WITH ACTUAL RESULTS
+    if in_pursuit_mode:
+        viable_status = "✓ SIGNIFICANT" if results["viable"] else "✗ NOT SIGNIFICANT"
+        hypothesis_data["reasoning"] = f"Verification attempt {pursuit['pursuit_attempts'] + 1}/5: {viable_status} | p={results['p_value']:.6f}, effect={results['effect_size']:.4f}"
 
     # Track persistence for verification
     persistence_count = track_persistence(feed_key, hypothesis_data["hypothesis"], results["p_value"])
