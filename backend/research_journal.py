@@ -110,12 +110,115 @@ def init_research_db():
             last_p_value REAL,
             last_effect_size REAL,
             created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
+            updated_at TEXT NOT NULL,
+            verification_windows TEXT
         )
     """)
 
     conn.commit()
     conn.close()
+
+def migrate_db():
+    """Apply database migrations for new columns."""
+    conn = sqlite3.connect(str(DB_PATH))
+    c = conn.cursor()
+
+    try:
+        # Check if verification_windows column exists
+        c.execute("PRAGMA table_info(pursuit_state)")
+        columns = [row[1] for row in c.fetchall()]
+
+        if "verification_windows" not in columns:
+            print("[MIGRATION] Adding verification_windows column to pursuit_state...")
+            c.execute("ALTER TABLE pursuit_state ADD COLUMN verification_windows TEXT")
+            conn.commit()
+            print("[MIGRATION] Column added successfully")
+    except Exception as e:
+        print(f"[MIGRATION] Error: {e}")
+    finally:
+        conn.close()
+
+def generate_verification_windows(draws: List[Dict], num_windows: int = 5, window_days: int = 7) -> List[Dict[str, str]]:
+    """Generate random independent verification windows from historical draws.
+
+    Each window is a time range of window_days duration selected randomly from different parts
+    of the historical data. This ensures verification tests are on locked, independent data.
+
+    Returns: List of dicts with 'start_date' and 'end_date' keys (YYYY-MM-DD format)
+    """
+    if len(draws) < num_windows * window_days:
+        # Not enough draws - just create windows from available data
+        if draws:
+            windows = []
+            draw_dates = sorted([d.get("draw_date", "") for d in draws if d.get("draw_date")])
+            if draw_dates:
+                # Divide available draws into num_windows sections
+                section_size = max(1, len(draw_dates) // num_windows)
+                for i in range(num_windows):
+                    start_idx = i * section_size
+                    end_idx = min((i + 1) * section_size + window_days - 1, len(draw_dates) - 1)
+                    if start_idx < len(draw_dates) and end_idx < len(draw_dates):
+                        windows.append({
+                            "start_date": draw_dates[start_idx],
+                            "end_date": draw_dates[end_idx]
+                        })
+            return windows
+        return []
+
+    # Get sorted draw dates
+    draw_dates = sorted([d.get("draw_date", "") for d in draws if d.get("draw_date")])
+
+    if not draw_dates:
+        return []
+
+    # Select random starting points that are spaced apart
+    import random
+    windows = []
+    total_days = (len(draw_dates) - 1) * 7  # Rough estimate
+    max_start_idx = max(0, len(draw_dates) - (num_windows * window_days))
+
+    # Create random non-overlapping windows
+    used_indices = set()
+    attempts = 0
+    max_attempts = 100
+
+    while len(windows) < num_windows and attempts < max_attempts:
+        attempts += 1
+        # Select random start index
+        if max_start_idx > 0:
+            start_idx = random.randint(0, max_start_idx)
+        else:
+            start_idx = 0
+
+        # Check if this window overlaps with existing ones
+        end_idx = min(start_idx + window_days - 1, len(draw_dates) - 1)
+
+        # Skip if indices are already used
+        if any(idx in used_indices for idx in range(start_idx, end_idx + 1)):
+            continue
+
+        # Add window
+        for idx in range(start_idx, end_idx + 1):
+            used_indices.add(idx)
+
+        windows.append({
+            "start_date": draw_dates[start_idx],
+            "end_date": draw_dates[end_idx]
+        })
+
+    # If we couldn't generate enough random windows, fall back to sequential
+    if len(windows) < num_windows:
+        windows = []
+        section_size = max(1, len(draw_dates) // num_windows)
+        for i in range(num_windows):
+            start_idx = i * section_size
+            end_idx = min((i + 1) * section_size + window_days - 1, len(draw_dates) - 1)
+            windows.append({
+                "start_date": draw_dates[start_idx],
+                "end_date": draw_dates[end_idx]
+            })
+
+    return windows[:num_windows]
 
 def log_research_iteration(
     feed_key: str,
@@ -224,7 +327,7 @@ def get_pursuit_state(feed_key: str) -> Dict[str, Any]:
     c.execute("""
         SELECT is_active, target_hypothesis, target_test_method, target_parameters,
                discovery_level, pursuit_start_iteration, pursuit_attempts,
-               last_p_value, last_effect_size
+               last_p_value, last_effect_size, created_at, verification_windows
         FROM pursuit_state
         WHERE feed_key = ?
     """, (feed_key,))
@@ -242,7 +345,9 @@ def get_pursuit_state(feed_key: str) -> Dict[str, Any]:
             "pursuit_start_iteration": None,
             "pursuit_attempts": 0,
             "last_p_value": None,
-            "last_effect_size": None
+            "last_effect_size": None,
+            "created_at": None,
+            "verification_windows": None
         }
 
     return {
@@ -254,7 +359,9 @@ def get_pursuit_state(feed_key: str) -> Dict[str, Any]:
         "pursuit_start_iteration": row[5],
         "pursuit_attempts": row[6],
         "last_p_value": row[7],
-        "last_effect_size": row[8]
+        "last_effect_size": row[8],
+        "created_at": row[9],
+        "verification_windows": json.loads(row[10]) if row[10] else None
     }
 
 def start_pursuit(
@@ -265,9 +372,14 @@ def start_pursuit(
     discovery_level: str,
     current_iteration: int,
     p_value: float,
-    effect_size: float
+    effect_size: float,
+    verification_windows: List[Dict[str, str]] = None
 ):
-    """Enter pursuit mode to verify a CANDIDATE pattern."""
+    """Enter pursuit mode to verify a CANDIDATE pattern.
+
+    verification_windows: List of 5 date ranges for independent verification testing
+    Each window is: {"start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD"}
+    """
     conn = sqlite3.connect(str(DB_PATH))
     c = conn.cursor()
 
@@ -277,8 +389,8 @@ def start_pursuit(
         INSERT OR REPLACE INTO pursuit_state
         (feed_key, is_active, target_hypothesis, target_test_method, target_parameters,
          discovery_level, pursuit_start_iteration, pursuit_attempts,
-         last_p_value, last_effect_size, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         last_p_value, last_effect_size, created_at, updated_at, verification_windows)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         feed_key,
         True,
@@ -291,7 +403,8 @@ def start_pursuit(
         p_value,
         effect_size,
         now,
-        now
+        now,
+        json.dumps(verification_windows) if verification_windows else None
     ))
 
     conn.commit()

@@ -12,7 +12,8 @@ load_dotenv()
 from backend.research_journal import (
     init_research_db, log_research_iteration,
     get_recent_research, get_iteration_count,
-    get_pursuit_state, start_pursuit, update_pursuit, end_pursuit
+    get_pursuit_state, start_pursuit, update_pursuit, end_pursuit,
+    generate_verification_windows, migrate_db
 )
 from backend.pattern_tests import PATTERN_TESTS
 from backend.db import get_all_draws
@@ -313,7 +314,8 @@ def run_autonomous_research(feed_key: str) -> Dict[str, Any]:
     6. Checks for contradictions
     """
     init_research_db()
-    
+    migrate_db()
+
     try:
         import anthropic
     except ImportError:
@@ -343,24 +345,32 @@ def run_autonomous_research(feed_key: str) -> Dict[str, Any]:
     draws = get_all_draws(feed_key)
     total_draws = len(draws)
 
-    # VERIFICATION MODE: Test on more recent data window to verify persistence
+    # VERIFICATION MODE: Test on locked, pre-selected windows for independent verification
     draws_window = draws
-    if in_pursuit_mode and pursuit.get("created_at"):
-        # Test on draws AFTER pursuit started (independent verification set)
-        from datetime import datetime, timedelta
-        pursuit_start = datetime.fromisoformat(pursuit["created_at"].replace('Z', '+00:00'))
-        # Get draws from the last 20 days (more recent than when pursuit started)
-        recent_cutoff = pursuit_start + timedelta(days=5)
-        recent_draws = [d for d in draws if d.get("draw_date", "") >= recent_cutoff.strftime("%Y-%m-%d")]
-        if recent_draws:
-            draws_window = recent_draws
-            print(f"[VERIFICATION] Testing on {len(draws_window)} recent draws (pursuit started {pursuit['created_at']})")
-        else:
-            # Fall back to recent 50 draws if no new ones yet
-            draws_window = draws[-50:] if len(draws) > 50 else draws
-            print(f"[VERIFICATION] No draws since pursuit start, testing on last {len(draws_window)} draws")
+    if in_pursuit_mode and pursuit.get("verification_windows"):
+        # Use the pre-locked verification window for this attempt
+        verification_windows = pursuit["verification_windows"]
+        attempt_num = pursuit["pursuit_attempts"]  # 0-indexed
 
-    # Restore original logic: use all draws for each test, let pattern/hypothesis selection be random/AI-driven as before
+        if 0 <= attempt_num < len(verification_windows):
+            window = verification_windows[attempt_num]
+            start_date = window["start_date"]
+            end_date = window["end_date"]
+            filtered_draws = [
+                d for d in draws
+                if start_date <= d.get("draw_date", "") <= end_date
+            ]
+            if filtered_draws:
+                draws_window = filtered_draws
+                print(f"[VERIFICATION] Attempt {attempt_num + 1}/{len(verification_windows)}: Testing on locked window {start_date} to {end_date} ({len(draws_window)} draws)")
+            else:
+                print(f"[VERIFICATION] No draws in window {start_date} to {end_date}, using all draws")
+        else:
+            print(f"[VERIFICATION] Attempt {attempt_num} exceeds window count {len(verification_windows)}")
+    elif in_pursuit_mode:
+        # Fallback: Use most recent 50 draws if no windows available
+        draws_window = draws[-50:] if len(draws) > 50 else draws
+        print(f"[VERIFICATION] No verification windows available, testing on last {len(draws_window)} draws")
 
     # === PARTIAL WIN PATTERN ANALYSIS (3+, 4+, 5+ matches) ===
     def count_partial_wins(candidate_numbers, all_draws, min_match=3):
@@ -645,16 +655,27 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
             'fibonacci', 'prime', 'perfect square',
         ]
         new_hyp_lower = new_hypothesis.lower()
-        for pattern in repetitive_patterns:
-            if pattern in new_hyp_lower:
-                # Check if this pattern appeared in recent history
-                pattern_count = 0
-                for h in history[-5:]:
-                    if not h: continue
-                    if pattern in h.get('hypothesis', '').lower():
-                        pattern_count += 1
-                if pattern_count >= 2:  # Block if pattern used 2+ times in last 5
-                    return False
+
+        # Check if we're repeating ANY pattern from the last 50 iterations
+        # This catches "multiple of 7", "multiple of 5", "divisible by X", etc.
+        for h in history[-50:]:
+            if not h: continue
+            hist_lower = h.get('hypothesis', '').lower()
+            # Check if any repetitive pattern matches between new and historical hypothesis
+            for pattern in repetitive_patterns:
+                if pattern in new_hyp_lower and pattern in hist_lower:
+                    # Both contain the same pattern - likely a repeat of the same family
+                    # Additionally check: are they testing the same number in that pattern?
+                    # Extract number after pattern if present
+                    new_num = new_hyp_lower[new_hyp_lower.find(pattern) + len(pattern):].split()[0] if pattern in new_hyp_lower else ""
+                    hist_num = hist_lower[hist_lower.find(pattern) + len(pattern):].split()[0] if pattern in hist_lower else ""
+                    if new_num and hist_num and new_num == hist_num:
+                        # Same pattern with same number - this is a repeat
+                        return False
+                    elif not new_num or not hist_num:
+                        # Pattern without number (like "fibonacci", "prime") - block if appeared recently
+                        if pattern in ['fibonacci', 'prime', 'perfect square']:
+                            return False
 
         # ENFORCE CATEGORY DIVERSITY - reject if same category 2+ times in last 3
         category_keywords = {
@@ -675,7 +696,7 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
 
         if new_category:
             same_cat_count = 0
-            for h in history[-3:]:  # Stricter: check last 3 instead of 5
+            for h in history[-15:]:  # Extended from 3 to 15 iterations for better category diversity
                 if not h: continue
                 hist_lower = h.get('hypothesis', '').lower()
                 for cat, keywords in category_keywords.items():
@@ -683,7 +704,7 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
                         if cat == new_category:
                             same_cat_count += 1
                         break
-            if same_cat_count >= 2:  # Stricter: 2+ in last 3 instead of 3+ in last 5
+            if same_cat_count >= 3:  # Block if same category appears 3+ times in last 15
                 return False
 
         return True
@@ -1382,6 +1403,9 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
     else:
         # Not in pursuit mode - check if we should enter it
         if discovery["level"] == "CANDIDATE":
+            # Generate locked verification windows for independent testing
+            verification_windows = generate_verification_windows(draws)
+
             # Start pursuit mode for this candidate pattern
             start_pursuit(
                 feed_key=feed_key,
@@ -1391,7 +1415,8 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
                 discovery_level=discovery["level"],
                 current_iteration=iteration,
                 p_value=results["p_value"],
-                effect_size=results["effect_size"]
+                effect_size=results["effect_size"],
+                verification_windows=verification_windows
             )
             pursuit_mode_message = "🔶 CANDIDATE DETECTED: Entering VERIFICATION MODE. Next iteration will re-test this pattern."
 
