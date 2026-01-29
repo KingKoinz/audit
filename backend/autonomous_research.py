@@ -986,6 +986,8 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
 
             # Check similarity to recent history
             same_category_count = 0
+            too_similar = False
+
             for h in history[-10:]:
                 hist_lower = h.get("hypothesis", "").lower()
 
@@ -996,8 +998,8 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
                     overlap = len(hyp_words & hist_words) / len(hyp_words | hist_words)
                     if overlap > 0.5:
                         # Too similar to recent test
-                        if attempt < max_retries - 1:
-                            continue  # Retry with different hypothesis
+                        too_similar = True
+                        break
 
                 # Category similarity
                 if current_category:
@@ -1009,15 +1011,15 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
                     if hist_category == current_category:
                         same_category_count += 1
 
-            # STRICT: Reject if same category appears 3+ times in last 10
-            if same_category_count >= 3:
+            # Retry if too similar or same category too often
+            if too_similar or same_category_count >= 3:
                 if attempt < max_retries - 1:
-                    continue  # Retry with different category
+                    continue  # Retry with different hypothesis
                 else:
                     # Max retries hit - return error instead of using poor hypothesis
                     return {
                         "status": "diversity_rejected",
-                        "message": f"❌ DIVERSITY FILTER: Failed to generate diverse hypothesis. {same_category_count} recent tests in {current_category} category.",
+                        "message": f"❌ DIVERSITY FILTER: Failed to generate diverse hypothesis.",
                         "hypothesis": hypothesis_data.get("hypothesis", ""),
                         "viable": False
                     }
