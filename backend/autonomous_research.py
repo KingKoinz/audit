@@ -619,21 +619,21 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
 
     # --- ENFORCE UNIQUE HYPOTHESIS/REASONING (no repeats from last 5) ---
     def is_unique_hypothesis_reasoning(new_hypothesis, new_reasoning, new_method, history, overused):
-        # Check for exact hypothesis repeat (still enforce - no identical tests)
-        for h in history[-5:]:
+        # Check for exact hypothesis repeat (expanded to 50 iterations)
+        for h in history[-50:]:
             if not h: continue
             if h.get('hypothesis', '').strip() == new_hypothesis.strip():
                 return False
             if h.get('ai_reasoning', '').strip() == new_reasoning.strip():
                 return False
 
-        # ENFORCE METHOD DIVERSITY - reject if method was used in last 3 iterations
-        recent_methods = [h.get('test_method', '') for h in history[-3:] if h]
+        # ENFORCE METHOD DIVERSITY - reject if method was used in last 10 iterations
+        recent_methods = [h.get('test_method', '') for h in history[-10:] if h]
         if new_method in recent_methods:
             return False
 
         # BLOCK "custom" method if used too often (catch-all abuse prevention)
-        custom_count = sum(1 for h in history[-5:] if h and h.get('test_method', '') == 'custom')
+        custom_count = sum(1 for h in history[-15:] if h and h.get('test_method', '') == 'custom')
         if new_method == 'custom' and custom_count >= 2:
             return False
 
@@ -1003,19 +1003,20 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
                     current_category = category
                     break
 
-            # Check similarity to recent history
+            # Check similarity to extended history (last 50 iterations, not just 10)
+            # This catches repeats across longer time spans
             same_category_count = 0
             too_similar = False
 
-            for h in history[-10:]:
+            for h in history[-50:]:
                 hist_lower = h.get("hypothesis", "").lower()
 
-                # Word overlap similarity
+                # Word overlap similarity - lowered threshold from 50% to 30% to catch subtle repeats
                 hyp_words = set(hypothesis_lower.split())
                 hist_words = set(hist_lower.split())
                 if hyp_words and hist_words:
                     overlap = len(hyp_words & hist_words) / len(hyp_words | hist_words)
-                    if overlap > 0.5:
+                    if overlap > 0.3:  # Lowered from 0.5 to catch patterns like "digit 7" variants
                         # Too similar to recent test
                         too_similar = True
                         break
@@ -1146,7 +1147,7 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
             current_category = category
             break
 
-    for h in history[-10:]:
+    for h in history[-50:]:  # Expanded from -10 to catch category repetition over longer spans
         hist_lower = h.get("hypothesis", "").lower()
         if current_category:
             for category, keywords in category_keywords.items():
