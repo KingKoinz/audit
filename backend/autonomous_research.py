@@ -1423,17 +1423,7 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
             )
             pursuit_mode_message = "🔶 CANDIDATE DETECTED: Entering VERIFICATION MODE. Next iteration will re-test this pattern."
 
-            # ALERT: Log and notify about the candidate
-            alert_discovery(
-                feed_key=feed_key,
-                discovery_level="CANDIDATE",
-                hypothesis=hypothesis_data["hypothesis"],
-                test_method=test_method,
-                p_value=results["p_value"],
-                effect_size=results["effect_size"],
-                persistence_count=persistence_count,
-                details={"parameters": parameters, "iteration": iteration}
-            )
+            # Note: Don't alert yet - only alert after 3 consecutive verification tests pass
 
         elif discovery["level"] in ["VERIFIED", "LEGENDARY"]:
             # Immediately verified (rare - would need existing persistence)
