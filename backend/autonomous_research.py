@@ -1036,13 +1036,10 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
                 if attempt < max_retries - 1:
                     continue  # Retry with different hypothesis
                 else:
-                    # Max retries hit - return error instead of using poor hypothesis
-                    return {
-                        "status": "diversity_rejected",
-                        "message": f"❌ DIVERSITY FILTER: Failed to generate diverse hypothesis.",
-                        "hypothesis": hypothesis_data.get("hypothesis", ""),
-                        "viable": False
-                    }
+                    # Max retries hit - ACCEPT anyway with warning (fallback like Test B custom test)
+                    # Better to run an imperfect test than fail completely
+                    print(f"[DIVERSITY FALLBACK] Max retries hit, accepting hypothesis despite diversity concern")
+                    break
 
         # Accept this response
         break
