@@ -100,14 +100,20 @@
 // Fetch and display AI lottery predictions
 async function displayLotteryPredictions() {
   const container = document.getElementById('lotteryPredictionContainer');
-  if (!container) return;
+  if (!container) {
+    console.log('[LOTTERY] Container not found');
+    return;
+  }
 
   try {
     const feed = document.getElementById('feedSelect').value || 'powerball';
+    console.log('[LOTTERY] Fetching prediction for:', feed);
     const res = await fetch(`/api/lottery-prediction/${feed}`);
     const data = await res.json();
+    console.log('[LOTTERY] Response:', data);
 
     if (!data.prediction) {
+      console.log('[LOTTERY] No prediction in response');
       container.innerHTML = '';
       return;
     }
@@ -124,6 +130,7 @@ async function displayLotteryPredictions() {
       ballsHtml += `<div class="lottery-ball ${game.bonusClass}">${pred.bonus}</div>`;
     }
 
+    console.log('[LOTTERY] Generated HTML:', ballsHtml);
     container.innerHTML = `
       <div class="lottery-prediction-container">
         <div class="lottery-title">🎰 AI Prediction (Based on CANDIDATE Patterns)</div>
@@ -132,8 +139,9 @@ async function displayLotteryPredictions() {
         <div class="lottery-disclaimer">⚠️ Research analysis only. Not gambling advice. Each draw is independent.</div>
       </div>
     `;
+    console.log('[LOTTERY] Rendered successfully');
   } catch (err) {
-    console.log('Lottery prediction not available yet');
+    console.error('[LOTTERY] Error:', err);
   }
 }
 
