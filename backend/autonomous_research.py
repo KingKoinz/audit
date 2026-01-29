@@ -21,32 +21,51 @@ from backend.alerts import alert_discovery
 
 
 def convert_numpy_types(obj):
-    """Convert numpy types to native Python types for JSON serialization, handle NaN/infinity."""
+    """Convert numpy types to native Python types for JSON serialization, aggressively handle NaN/infinity."""
     if isinstance(obj, np.integer):
         return int(obj)
     elif isinstance(obj, np.floating):
         val = float(obj)
         # Replace NaN and infinity with safe values for JSON
-        if math.isnan(val):
-            return 1.0  # Default for failed tests
-        elif math.isinf(val):
-            return 1.0 if val > 0 else 0.0
+        try:
+            if math.isnan(val):
+                return 1.0  # Default for failed tests
+            elif math.isinf(val):
+                return 1.0 if val > 0 else 0.0
+        except (TypeError, ValueError):
+            return 1.0
         return val
     elif isinstance(obj, float):
-        # Handle native Python floats too
-        if math.isnan(obj):
+        # Handle native Python floats too - AGGRESSIVE checking
+        try:
+            if math.isnan(obj):
+                return 1.0
+            elif math.isinf(obj):
+                return 1.0 if obj > 0 else 0.0
+        except (TypeError, ValueError):
             return 1.0
-        elif math.isinf(obj):
-            return 1.0 if obj > 0 else 0.0
         return obj
     elif isinstance(obj, np.ndarray):
-        return obj.tolist()
+        # Convert array and clean each element
+        return [convert_numpy_types(item) for item in obj.tolist()]
     elif isinstance(obj, np.bool_):
         return bool(obj)
     elif isinstance(obj, dict):
-        return {key: convert_numpy_types(value) for key, value in obj.items()}
+        # Recursively clean dict values
+        cleaned = {}
+        for key, value in obj.items():
+            try:
+                cleaned[key] = convert_numpy_types(value)
+            except Exception:
+                # If conversion fails, use safe default
+                cleaned[key] = None
+        return cleaned
     elif isinstance(obj, list):
-        return [convert_numpy_types(item) for item in obj]
+        # Recursively clean list items
+        try:
+            return [convert_numpy_types(item) for item in obj]
+        except Exception:
+            return []
     else:
         return obj
 
@@ -1408,6 +1427,15 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
 
     # Get final pursuit state for response
     final_pursuit_state = get_pursuit_state(feed_key)
+
+    # EXTRA CLEANING: Ensure results dict has no NaN/infinity values
+    if isinstance(results, dict):
+        for key in ['p_value', 'effect_size']:
+            if key in results:
+                val = results[key]
+                if isinstance(val, (float, np.floating)):
+                    if math.isnan(val) or math.isinf(val):
+                        results[key] = 1.0 if key == 'p_value' else 0.0
 
     # Convert all numpy types to native Python types for JSON serialization
     # Ensure all required fields are present with defaults if missing
