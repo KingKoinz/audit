@@ -21,11 +21,24 @@ from backend.alerts import alert_discovery
 
 
 def convert_numpy_types(obj):
-    """Convert numpy types to native Python types for JSON serialization."""
+    """Convert numpy types to native Python types for JSON serialization, handle NaN/infinity."""
     if isinstance(obj, np.integer):
         return int(obj)
     elif isinstance(obj, np.floating):
-        return float(obj)
+        val = float(obj)
+        # Replace NaN and infinity with safe values for JSON
+        if math.isnan(val):
+            return 1.0  # Default for failed tests
+        elif math.isinf(val):
+            return 1.0 if val > 0 else 0.0
+        return val
+    elif isinstance(obj, float):
+        # Handle native Python floats too
+        if math.isnan(obj):
+            return 1.0
+        elif math.isinf(obj):
+            return 1.0 if obj > 0 else 0.0
+        return obj
     elif isinstance(obj, np.ndarray):
         return obj.tolist()
     elif isinstance(obj, np.bool_):
