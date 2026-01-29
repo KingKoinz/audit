@@ -438,7 +438,7 @@ def run_autonomous_research(feed_key: str) -> Dict[str, Any]:
 
     # Build context summary for Claude
     history_summary = "\n".join([
-        f"- Iteration {h['iteration']}: {h['hypothesis']} → p={h['p_value']:.4f}, viable={h['viable']}"
+        f"- Iteration {h['iteration']}: {h['hypothesis']} → p={h['p_value']:.4f if h['p_value'] is not None else 'N/A'}, viable={h['viable']}"
         for h in history[-20:]  # Last 20 (increased for better pattern tracking)
     ])
 
