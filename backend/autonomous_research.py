@@ -629,11 +629,32 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
 
     # --- ENFORCE UNIQUE HYPOTHESIS/REASONING (no repeats from last 5) ---
     def is_unique_hypothesis_reasoning(new_hypothesis, new_reasoning, new_method, history, overused):
-        # Check for exact hypothesis repeat (expanded to 50 iterations)
-        for h in history[-50:]:
+        new_hyp_lower = new_hypothesis.lower().strip()
+
+        # Check for exact hypothesis repeat (expanded to 100 iterations for Mega Millions duplicate issue)
+        for h in history[-100:]:
             if not h: continue
-            if h.get('hypothesis', '').strip() == new_hypothesis.strip():
+            hist_hyp = h.get('hypothesis', '').lower().strip()
+            # Exact match
+            if hist_hyp == new_hyp_lower:
                 return False
+            # Check for near-matches (same core hypothesis with minor wording differences)
+            # This catches patterns like "frequency of numbers divisible by X" appearing multiple times
+            if hist_hyp and new_hyp_lower:
+                # Compare lengths - if very similar length and contain same key numbers/patterns
+                if abs(len(hist_hyp) - len(new_hyp_lower)) < 20:  # Within 20 characters
+                    # Extract numbers from both
+                    import re
+                    new_nums = re.findall(r'\d+', new_hyp_lower)
+                    hist_nums = re.findall(r'\d+', hist_hyp)
+                    # If same numbers appear, it's likely the same hypothesis with different wording
+                    if new_nums and hist_nums and new_nums == hist_nums:
+                        # Check if key phrases match (divisible, frequency, etc.)
+                        key_phrases = ['divisible', 'multiple', 'frequency', 'ending', 'digit', 'modulo']
+                        matching_phrases = sum(1 for phrase in key_phrases if phrase in hist_hyp and phrase in new_hyp_lower)
+                        if matching_phrases >= 2:  # At least 2 key phrases match = likely duplicate
+                            return False
+
             if h.get('ai_reasoning', '').strip() == new_reasoning.strip():
                 return False
 
@@ -654,18 +675,14 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
             'ending in', 'ends in', 'digit ',
             'fibonacci', 'prime', 'perfect square',
         ]
-        new_hyp_lower = new_hypothesis.lower()
 
-        # Check if we're repeating ANY pattern from the last 50 iterations
-        # This catches "multiple of 7", "multiple of 5", "divisible by X", etc.
-        for h in history[-50:]:
+        # Check if we're repeating ANY pattern from the last 100 iterations
+        for h in history[-100:]:
             if not h: continue
             hist_lower = h.get('hypothesis', '').lower()
             # Check if any repetitive pattern matches between new and historical hypothesis
             for pattern in repetitive_patterns:
                 if pattern in new_hyp_lower and pattern in hist_lower:
-                    # Both contain the same pattern - likely a repeat of the same family
-                    # Additionally check: are they testing the same number in that pattern?
                     # Extract number after pattern if present
                     new_num = new_hyp_lower[new_hyp_lower.find(pattern) + len(pattern):].split()[0] if pattern in new_hyp_lower else ""
                     hist_num = hist_lower[hist_lower.find(pattern) + len(pattern):].split()[0] if pattern in hist_lower else ""
