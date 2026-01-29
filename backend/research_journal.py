@@ -96,6 +96,28 @@ def init_research_db():
         ON prediction_snapshots(feed_key, draw_date DESC)
     """)
 
+    # Claude AI predictions table
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS ai_predictions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            feed_key TEXT NOT NULL,
+            draw_date TEXT NOT NULL,
+            hot_numbers TEXT NOT NULL,
+            cold_numbers TEXT NOT NULL,
+            overdue_numbers TEXT NOT NULL,
+            hot_reasoning TEXT,
+            cold_reasoning TEXT,
+            overdue_reasoning TEXT,
+            created_at TEXT NOT NULL,
+            UNIQUE(feed_key, draw_date)
+        )
+    """)
+
+    c.execute("""
+        CREATE INDEX IF NOT EXISTS idx_ai_pred_feed_date
+        ON ai_predictions(feed_key, draw_date DESC)
+    """)
+
     # Pursuit state tracking table
     c.execute("""
         CREATE TABLE IF NOT EXISTS pursuit_state (
@@ -692,3 +714,213 @@ def get_recent_predictions(feed_key: str, limit: int = 10) -> List[Dict[str, Any
 
     conn.close()
     return results
+
+
+def generate_claude_ai_predictions(feed_key: str, draws: List[Dict], max_num: int, lookback: int = 100) -> Dict[str, Any]:
+    """
+    Use Claude AI to intelligently predict hot/cold/overdue numbers for next draw.
+    Analyzes patterns and generates reasoning for predictions.
+
+    Args:
+        feed_key: 'powerball' or 'megamillions'
+        draws: List of all historical draws
+        max_num: Maximum number in pool
+        lookback: How many draws to analyze (default 100)
+
+    Returns:
+        {
+            'hot': [list of numbers],
+            'cold': [list of numbers],
+            'overdue': [list of numbers],
+            'hot_reasoning': str,
+            'cold_reasoning': str,
+            'overdue_reasoning': str
+        }
+    """
+    import os
+
+    try:
+        import anthropic
+    except ImportError:
+        # Fallback to frequency-based if Claude not available
+        return classify_numbers_hot_cold_overdue(draws, max_num, lookback=lookback)
+
+    api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
+        # Fallback to frequency-based
+        return classify_numbers_hot_cold_overdue(draws, max_num, lookback=lookback)
+
+    try:
+        # Analyze recent draws for Claude
+        recent_draws = sorted(draws, key=lambda x: x.get("draw_date", ""), reverse=True)[:lookback]
+
+        if len(recent_draws) < 10:
+            # Not enough data
+            return classify_numbers_hot_cold_overdue(draws, max_num, lookback=lookback)
+
+        # Count appearances by number
+        appearances = {}
+        for num in range(1, max_num + 1):
+            count = 0
+            last_drawn = None
+            for i, draw in enumerate(recent_draws):
+                if num in draw.get("numbers", []):
+                    count += 1
+                    if last_drawn is None:
+                        last_drawn = i
+            appearances[num] = {"count": count, "days_since": last_drawn if last_drawn is not None else len(recent_draws)}
+
+        # Build data summary for Claude
+        frequency_stats = sorted(appearances.items(), key=lambda x: x[1]["count"], reverse=True)
+
+        hot_summary = [f"Number {num}: appeared {data['count']} times in last {len(recent_draws)} draws"
+                      for num, data in frequency_stats[:20]]
+        cold_summary = [f"Number {num}: appeared {data['count']} times, last drawn {data['days_since']} draws ago"
+                       for num, data in frequency_stats[-20:]]
+        overdue_summary = sorted([(num, data) for num, data in appearances.items()],
+                                key=lambda x: x[1]["days_since"])[:20]
+        overdue_text = [f"Number {num}: {data['days_since']} draws since last appearance, typical frequency {data['count']} times per {len(recent_draws)} draws"
+                       for num, data in overdue_summary]
+
+        prompt = f"""Analyze {feed_key.upper()} lottery draw patterns and predict which numbers are most likely in the next draw.
+
+Recent draw statistics (last {len(recent_draws)} draws):
+
+**Hottest Numbers (most frequent):**
+{chr(10).join(hot_summary[:10])}
+
+**Coldest Numbers (least frequent):**
+{chr(10).join(cold_summary[:10])}
+
+**Overdue Numbers (haven't appeared in a while):**
+{chr(10).join(overdue_text[:10])}
+
+Based on this analysis, provide:
+1. **5 HOT numbers** - Most likely to appear based on recent frequency
+2. **5 COLD numbers** - Least likely based on frequency, may be "due"
+3. **5 OVERDUE numbers** - Haven't appeared recently, statistically likely to reappear
+
+For each category, consider:
+- Historical appearance frequency
+- How long since last appearance
+- Statistical probability of reappearance
+
+Return ONLY valid JSON with this exact structure:
+{{
+  "hot": {{"numbers": [1,2,3,4,5], "reasoning": "explanation"}},
+  "cold": {{"numbers": [1,2,3,4,5], "reasoning": "explanation"}},
+  "overdue": {{"numbers": [1,2,3,4,5], "reasoning": "explanation"}}
+}}"""
+
+        client = anthropic.Anthropic(api_key=api_key)
+        message = client.messages.create(
+            model="claude-opus-4-5-20251101",
+            max_tokens=1000,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+        )
+
+        response_text = message.content[0].text
+
+        # Parse JSON from response
+        if "```json" in response_text:
+            json_start = response_text.find("```json") + 7
+            json_end = response_text.find("```", json_start)
+            response_text = response_text[json_start:json_end].strip()
+        elif "```" in response_text:
+            json_start = response_text.find("```") + 3
+            json_end = response_text.find("```", json_start)
+            response_text = response_text[json_start:json_end].strip()
+
+        predictions = json.loads(response_text)
+
+        return {
+            "hot": predictions.get("hot", {}).get("numbers", [])[:5],
+            "cold": predictions.get("cold", {}).get("numbers", [])[:5],
+            "overdue": predictions.get("overdue", {}).get("numbers", [])[:5],
+            "hot_reasoning": predictions.get("hot", {}).get("reasoning", "AI analysis"),
+            "cold_reasoning": predictions.get("cold", {}).get("reasoning", "AI analysis"),
+            "overdue_reasoning": predictions.get("overdue", {}).get("reasoning", "AI analysis")
+        }
+
+    except Exception as e:
+        print(f"[AI-PREDICTION] Error generating Claude predictions: {e}")
+        # Fallback to frequency-based
+        result = classify_numbers_hot_cold_overdue(draws, max_num, lookback=lookback)
+        result["hot_reasoning"] = "Frequency-based fallback"
+        result["cold_reasoning"] = "Frequency-based fallback"
+        result["overdue_reasoning"] = "Frequency-based fallback"
+        return result
+
+
+def save_ai_prediction(
+    feed_key: str,
+    draw_date: str,
+    hot_numbers: List[int],
+    cold_numbers: List[int],
+    overdue_numbers: List[int],
+    hot_reasoning: str = "",
+    cold_reasoning: str = "",
+    overdue_reasoning: str = ""
+) -> int:
+    """Save Claude AI prediction for a draw."""
+    conn = sqlite3.connect(str(DB_PATH))
+    c = conn.cursor()
+
+    now = datetime.now().isoformat()
+
+    try:
+        c.execute("""
+            INSERT OR REPLACE INTO ai_predictions
+            (feed_key, draw_date, hot_numbers, cold_numbers, overdue_numbers,
+             hot_reasoning, cold_reasoning, overdue_reasoning, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            feed_key,
+            draw_date,
+            json.dumps(hot_numbers),
+            json.dumps(cold_numbers),
+            json.dumps(overdue_numbers),
+            hot_reasoning,
+            cold_reasoning,
+            overdue_reasoning,
+            now
+        ))
+        conn.commit()
+        prediction_id = c.lastrowid
+    finally:
+        conn.close()
+
+    return prediction_id
+
+
+def get_latest_ai_prediction(feed_key: str) -> Dict[str, Any]:
+    """Get the latest Claude AI prediction for a feed."""
+    conn = sqlite3.connect(str(DB_PATH))
+    c = conn.cursor()
+
+    c.execute("""
+        SELECT hot_numbers, cold_numbers, overdue_numbers,
+               hot_reasoning, cold_reasoning, overdue_reasoning, draw_date
+        FROM ai_predictions
+        WHERE feed_key = ?
+        ORDER BY draw_date DESC
+        LIMIT 1
+    """, (feed_key,))
+
+    row = c.fetchone()
+    conn.close()
+
+    if not row:
+        return None
+
+    return {
+        "hot": json.loads(row[0]),
+        "cold": json.loads(row[1]),
+        "overdue": json.loads(row[2]),
+        "hot_reasoning": row[3],
+        "cold_reasoning": row[4],
+        "overdue_reasoning": row[5],
+        "draw_date": row[6]
+    }

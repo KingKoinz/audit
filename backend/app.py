@@ -63,6 +63,8 @@ async def daily_predictions_update():
         classify_numbers_hot_cold_overdue,
         save_prediction_snapshot,
         validate_prediction,
+        generate_claude_ai_predictions,
+        save_ai_prediction,
     )
     from backend.schedule import get_next_draw_time
     from backend.audit import RANGES
@@ -154,6 +156,33 @@ async def daily_predictions_update():
                     sys.stdout.flush()
                 else:
                     print(f"[DAILY-UPDATE] Snapshot already exists for {feed_key} draw {next_draw_date}")
+                    sys.stdout.flush()
+
+                # STEP 3: Generate Claude AI predictions for this draw
+                try:
+                    print(f"[DAILY-UPDATE] Generating Claude AI predictions for {feed_key} draw {next_draw_date}...")
+                    sys.stdout.flush()
+
+                    ai_predictions = generate_claude_ai_predictions(feed_key, all_draws_sorted, RANGES[feed_key]["main_max"], lookback=100)
+
+                    ai_pred_id = save_ai_prediction(
+                        feed_key=feed_key,
+                        draw_date=next_draw_date,
+                        hot_numbers=ai_predictions.get("hot", []),
+                        cold_numbers=ai_predictions.get("cold", []),
+                        overdue_numbers=ai_predictions.get("overdue", []),
+                        hot_reasoning=ai_predictions.get("hot_reasoning", ""),
+                        cold_reasoning=ai_predictions.get("cold_reasoning", ""),
+                        overdue_reasoning=ai_predictions.get("overdue_reasoning", "")
+                    )
+
+                    print(f"[DAILY-UPDATE] Claude AI Prediction for {feed_key} {next_draw_date}:")
+                    print(f"[DAILY-UPDATE]   Hot: {ai_predictions.get('hot', [])} - {ai_predictions.get('hot_reasoning', '')[:80]}")
+                    print(f"[DAILY-UPDATE]   Cold: {ai_predictions.get('cold', [])} - {ai_predictions.get('cold_reasoning', '')[:80]}")
+                    print(f"[DAILY-UPDATE]   Overdue: {ai_predictions.get('overdue', [])} - {ai_predictions.get('overdue_reasoning', '')[:80]}")
+                    sys.stdout.flush()
+                except Exception as e:
+                    print(f"[DAILY-UPDATE] Error generating AI predictions for {feed_key}: {e}")
                     sys.stdout.flush()
 
             conn.close()
