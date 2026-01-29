@@ -1086,12 +1086,12 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
         if same_category_count >= 3 and diversity_score <= 3:
             # FALLBACK: Auto-convert to underused method instead of rejecting
             if underused_methods:
+                current_method = hypothesis_data.get("test_method", "unknown")
                 fallback_method = underused_methods[0]
-                print(f"[DIVERSITY FALLBACK] Switching from {test_method} to underused {fallback_method}")
+                print(f"[DIVERSITY FALLBACK] Switching from {current_method} to underused {fallback_method}")
 
                 # Update hypothesis_data with new method
                 hypothesis_data["test_method"] = fallback_method
-                test_method = fallback_method
 
                 # Generate appropriate parameters for fallback method
                 fallback_params = {}
@@ -1102,7 +1102,6 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
                     fallback_params = {'low': 100, 'high': 150}
 
                 hypothesis_data["parameters"] = fallback_params
-                parameters = fallback_params
 
                 # Update hypothesis to reflect the change
                 hypothesis_data["hypothesis"] = f"Testing pattern via {fallback_method} (diversity enforced)"
