@@ -353,9 +353,9 @@ def alert_discovery(
 ) -> Dict[str, Any]:
     """
     Main alert function - logs finding and sends notifications.
-    Call this when a CANDIDATE+ discovery is made.
+    Only sends alerts when pattern has 3+ consecutive verification tests.
     """
-    # Only alert for significant findings
+    # Only log for significant findings
     if discovery_level not in ["CANDIDATE", "VERIFIED", "LEGENDARY"]:
         return {"logged": False, "reason": "Below alert threshold"}
 
@@ -383,13 +383,18 @@ def alert_discovery(
         "persistence_count": persistence_count
     }
 
-    # Send notifications
-    email_sent = send_email_alert(finding)
-    push_count = send_push_notification(finding)
+    # Only send notifications if pattern has 3+ consecutive tests
+    email_sent = False
+    push_count = 0
+
+    if persistence_count >= 3:
+        email_sent = send_email_alert(finding)
+        push_count = send_push_notification(finding)
 
     return {
         "logged": True,
         "finding_id": finding_id,
         "email_sent": email_sent,
-        "push_notifications": push_count
+        "push_notifications": push_count,
+        "persistence_count": persistence_count
     }
