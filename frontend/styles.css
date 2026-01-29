@@ -722,7 +722,9 @@ button{ cursor:pointer; }
   align-items: center;
   gap: 10px;
   margin-bottom: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  overflow-x: auto;
 }
 
 .lottery-ball {
