@@ -1384,15 +1384,29 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
                     pursuit_mode_message = f"✅ VERIFICATION COMPLETE: Pattern VERIFIED after {updated_pursuit['pursuit_attempts']} tests!"
                     end_pursuit(feed_key, "verified")
 
-                    # Run advanced verification methods
-                    advanced_verification = comprehensive_verification(
-                        draws=draws,
-                        hypothesis=hypothesis_data["hypothesis"],
-                        feed_key=feed_key,
-                        test_params=parameters,
-                        p_value=results["p_value"],
-                        effect_size=results["effect_size"]
-                    )
+                    # Run advanced verification methods (with error handling)
+                    advanced_verification = None
+                    try:
+                        advanced_verification = comprehensive_verification(
+                            draws=draws,
+                            hypothesis=hypothesis_data["hypothesis"],
+                            feed_key=feed_key,
+                            test_params=parameters,
+                            p_value=results["p_value"],
+                            effect_size=results["effect_size"]
+                        )
+                    except Exception as e:
+                        print(f"[VERIFICATION ERROR] Advanced verification failed: {e}")
+                        advanced_verification = None
+
+                    # Build details dict
+                    details_dict = {
+                        "parameters": parameters,
+                        "iteration": iteration,
+                        "verification": "complete"
+                    }
+                    if advanced_verification:
+                        details_dict["advanced_verification"] = advanced_verification
 
                     # ALERT: Pattern verified through pursuit!
                     alert_discovery(
@@ -1403,12 +1417,7 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
                         p_value=results["p_value"],
                         effect_size=results["effect_size"],
                         persistence_count=updated_pursuit["pursuit_attempts"],
-                        details={
-                            "parameters": parameters,
-                            "iteration": iteration,
-                            "verification": "complete",
-                            "advanced_verification": advanced_verification
-                        }
+                        details=details_dict
                     )
                 else:
                     pursuit_mode_message = f"⏹️ VERIFICATION ENDED: Max attempts (5) reached. Pattern inconclusive."
