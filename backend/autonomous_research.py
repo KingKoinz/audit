@@ -1260,11 +1260,27 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
             if past["viable"] != results["viable"]:
                 contradicts = f"Contradicts iteration {past['iteration']}"
     
-    # Ensure results has required fields with defaults
+    # Ensure results has required fields with defaults and clean NaN/infinity
     if "p_value" not in results:
         results["p_value"] = 1.0
+    else:
+        # Clean NaN/infinity from p_value
+        p_val = results["p_value"]
+        if isinstance(p_val, (float, np.floating)):
+            if math.isnan(p_val) or math.isinf(p_val):
+                results["p_value"] = 1.0
+
     if "effect_size" not in results:
         results["effect_size"] = 0.0
+    else:
+        # Clean NaN/infinity from effect_size
+        e_val = results["effect_size"]
+        if isinstance(e_val, (float, np.floating)):
+            if math.isnan(e_val):
+                results["effect_size"] = 0.0
+            elif math.isinf(e_val):
+                results["effect_size"] = 0.0
+
     if "viable" not in results:
         results["viable"] = False
 
@@ -1283,7 +1299,13 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
         persistence_count=persistence_count
     )
 
-    # Add discovery to findings for storage
+    # Add discovery to findings for storage and ensure it's clean
+    # Clean any NaN/infinity from discovery object
+    if isinstance(discovery, dict):
+        for key, val in discovery.items():
+            if isinstance(val, (float, np.floating)):
+                if math.isnan(val) or math.isinf(val):
+                    discovery[key] = 0.0 if math.isnan(val) else (1.0 if val > 0 else 0.0)
     results["discovery"] = discovery
 
     # Log the research iteration
