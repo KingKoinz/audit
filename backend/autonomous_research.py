@@ -19,6 +19,7 @@ from backend.pattern_tests import PATTERN_TESTS
 from backend.db import get_all_draws
 from backend.discovery_framework import classify_discovery, track_persistence
 from backend.alerts import alert_discovery
+from backend.verification import comprehensive_verification
 
 
 def convert_numpy_types(obj):
@@ -1382,6 +1383,17 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
                 if discovery["level"] in ["VERIFIED", "LEGENDARY"]:
                     pursuit_mode_message = f"✅ VERIFICATION COMPLETE: Pattern VERIFIED after {updated_pursuit['pursuit_attempts']} tests!"
                     end_pursuit(feed_key, "verified")
+
+                    # Run advanced verification methods
+                    advanced_verification = comprehensive_verification(
+                        draws=draws,
+                        hypothesis=hypothesis_data["hypothesis"],
+                        feed_key=feed_key,
+                        test_params=parameters,
+                        p_value=results["p_value"],
+                        effect_size=results["effect_size"]
+                    )
+
                     # ALERT: Pattern verified through pursuit!
                     alert_discovery(
                         feed_key=feed_key,
@@ -1391,7 +1403,12 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
                         p_value=results["p_value"],
                         effect_size=results["effect_size"],
                         persistence_count=updated_pursuit["pursuit_attempts"],
-                        details={"parameters": parameters, "iteration": iteration, "verification": "complete"}
+                        details={
+                            "parameters": parameters,
+                            "iteration": iteration,
+                            "verification": "complete",
+                            "advanced_verification": advanced_verification
+                        }
                     )
                 else:
                     pursuit_mode_message = f"⏹️ VERIFICATION ENDED: Max attempts (5) reached. Pattern inconclusive."
