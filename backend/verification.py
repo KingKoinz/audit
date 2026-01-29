@@ -7,8 +7,23 @@ No AI required - pure statistical testing
 import json
 import re
 import numpy as np
+import math
 from typing import Dict, List, Any, Tuple
 from collections import Counter
+
+
+def safe_float(val):
+    """Convert float to safe JSON value, handling NaN/infinity"""
+    if val is None:
+        return None
+    if isinstance(val, (int, bool)):
+        return float(val)
+    val = float(val)
+    if math.isnan(val):
+        return 0.0
+    if math.isinf(val):
+        return 999.99 if val > 0 else -999.99
+    return val
 
 
 def bootstrap_resampling(
@@ -61,7 +76,7 @@ def bootstrap_resampling(
             # Default: assume pattern persists if we can't parse it
             persistence_count += 1
 
-    persistence_rate = persistence_count / num_resamples
+    persistence_rate = safe_float(persistence_count / num_resamples)
     credible = persistence_rate > 0.90
 
     return {
@@ -187,7 +202,7 @@ def sensitivity_analysis(
                       for num in d.get('main_numbers', [])
                       if num % variant == 0)
         total_drawn = len(draws) * 5
-        rate = matching / total_drawn if total_drawn > 0 else 0
+        rate = safe_float(matching / total_drawn if total_drawn > 0 else 0)
 
         tested_variants[variant] = {
             'match_rate': round(rate, 4),
@@ -251,7 +266,7 @@ def comprehensive_verification(
     if results['sensitivity']['credible']:
         scores.append(results['sensitivity']['specificity_score'])
 
-    combined_credibility = int(np.mean(scores)) if scores else 0
+    combined_credibility = int(safe_float(np.mean(scores))) if scores else 0
 
     # Overall verdict
     all_credible = all([
@@ -262,6 +277,8 @@ def comprehensive_verification(
 
     results['combined_credibility_score'] = combined_credibility
     results['all_methods_credible'] = all_credible
+    results['original_p_value'] = safe_float(results['original_p_value'])
+    results['original_effect_size'] = safe_float(results['original_effect_size'])
     results['verdict'] = (
         "🚨 HIGHLY CREDIBLE" if all_credible and combined_credibility > 75
         else "⚠️ QUESTIONABLE" if combined_credibility > 50
