@@ -1125,12 +1125,34 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
     if test_method == "custom":
         custom_logic = hypothesis_data.get("custom_test_logic", "")
         if not custom_logic:
-            validation_errors.append("Custom test method specified but no custom_test_logic provided")
-            return {
-                "status": "validation_failed",
-                "message": "Custom test requires custom_test_logic field",
-                "hypothesis": hypothesis_data.get("hypothesis", "")
-            }
+            # FALLBACK: Convert to a sensible pre-built method based on hypothesis
+            hypothesis_lower = hypothesis_data.get("hypothesis", "").lower()
+            fallback_method = "digit_ending"  # Default fallback
+            fallback_params = {"digit": 5}
+
+            # Detect what the hypothesis is about and choose appropriate fallback
+            if any(x in hypothesis_lower for x in ["sum", "total", "range"]):
+                fallback_method = "sum_range"
+                fallback_params = {"low": 100, "high": 150}
+            elif any(x in hypothesis_lower for x in ["even", "odd"]):
+                fallback_method = "even_odd_imbalance"
+                fallback_params = {}
+            elif any(x in hypothesis_lower for x in ["consecutive", "cluster", "spread"]):
+                fallback_method = "number_clustering"
+                fallback_params = {}
+            elif any(x in hypothesis_lower for x in ["streak", "repeat"]):
+                fallback_method = "streaks"
+                fallback_params = {}
+            elif any(x in hypothesis_lower for x in ["entropy", "randomness", "distribution"]):
+                fallback_method = "entropy"
+                fallback_params = {}
+
+            # Use fallback method
+            hypothesis_data["test_method"] = fallback_method
+            hypothesis_data["parameters"] = fallback_params
+            test_method = fallback_method
+            parameters = fallback_params
+            print(f"[FALLBACK] Custom test without logic converted to {fallback_method} for: {hypothesis_data.get('hypothesis', '')[:60]}...")
         
         # Execute custom test via AI interpretation (safe fallback)
         try:
