@@ -734,7 +734,9 @@ button{ cursor:pointer; }
   justify-content: center;
   font-weight: 700;
   font-size: 18px;
-  color: #fff;
+  color: #333;
+  background: #fff;
+  border: 2px solid #333;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   animation: bounce 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards;
 }
@@ -748,33 +750,36 @@ button{ cursor:pointer; }
 
 /* Powerball colors */
 .lottery-ball.powerball-main {
-  background: linear-gradient(135deg, #ff6b35, #ff9f43);
-  border: 2px solid #fff;
+  background: #fff;
+  border: 2px solid #333;
+  color: #333;
 }
 
 .lottery-ball.powerball-bonus {
-  background: linear-gradient(135deg, #ff0000, #cc0000);
-  border: 3px solid #fff;
+  background: #fff;
+  border: 3px solid #ff0000;
   width: 52px;
   height: 52px;
   font-size: 20px;
   margin-left: 4px;
+  color: #ff0000;
 }
 
 /* Mega Millions colors */
 .lottery-ball.megamillions-main {
-  background: linear-gradient(135deg, #ffd700, #ffed4e);
+  background: #fff;
   border: 2px solid #333;
   color: #333;
 }
 
 .lottery-ball.megamillions-bonus {
-  background: linear-gradient(135deg, #00a020, #00d644);
-  border: 3px solid #fff;
+  background: #fff;
+  border: 3px solid #00a020;
   width: 52px;
   height: 52px;
   font-size: 20px;
   margin-left: 4px;
+  color: #00a020;
 }
 
 @keyframes bounce {
