@@ -761,7 +761,7 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
 
         # Build context summary for Claude (must be inside loop for freshness)
         history_summary = "\n".join([
-            f"- Iteration {h['iteration']}: [{h.get('test_method', '?')}] {h['hypothesis'][:50]}... → p={h['p_value']:.4f}, viable={h['viable']}"
+            f"- Iteration {h['iteration']}: [{h.get('test_method', '?')}] {h['hypothesis'][:50]}... → p={format(h['p_value'], '.4f') if h['p_value'] is not None else 'N/A'}, viable={h['viable']}"
             for h in history[-20:]
         ])
         if not history_summary:
@@ -1312,7 +1312,9 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
         original_hypothesis = pursuit['target_hypothesis']
 
         # Show what's being tested + verification attempt results
-        hypothesis_data["reasoning"] = f"[VERIFICATION] Re-testing: {original_hypothesis[:90]}... | Attempt {pursuit['pursuit_attempts'] + 1}/5: {viable_status} | p={results['p_value']:.6f}, effect={results['effect_size']:.4f}"
+        p_str = format(results['p_value'], '.6f') if results['p_value'] is not None else 'N/A'
+        e_str = format(results['effect_size'], '.4f') if results['effect_size'] is not None else 'N/A'
+        hypothesis_data["reasoning"] = f"[VERIFICATION] Re-testing: {original_hypothesis[:90]}... | Attempt {pursuit['pursuit_attempts'] + 1}/5: {viable_status} | p={p_str}, effect={e_str}"
 
     # Track persistence for verification
     persistence_count = track_persistence(feed_key, hypothesis_data["hypothesis"], results["p_value"])
@@ -1397,7 +1399,8 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
                 pursuit_mode_message = f"🔬 VERIFICATION MODE: Pattern persists (attempt {updated_pursuit['pursuit_attempts']}/5). Continue testing..."
         else:
             # Pattern dissolved - false positive
-            pursuit_mode_message = f"❌ FALSE POSITIVE DETECTED: Pattern dissolved (p={results['p_value']:.4f}). Exiting verification mode."
+            p_str = format(results['p_value'], '.4f') if results['p_value'] is not None else 'N/A'
+            pursuit_mode_message = f"❌ FALSE POSITIVE DETECTED: Pattern dissolved (p={p_str}). Exiting verification mode."
             end_pursuit(feed_key, "disproven")
 
     else:
