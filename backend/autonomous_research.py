@@ -1428,14 +1428,42 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
     # Get final pursuit state for response
     final_pursuit_state = get_pursuit_state(feed_key)
 
-    # EXTRA CLEANING: Ensure results dict has no NaN/infinity values
+    # AGGRESSIVELY CLEAN all float values before response - walk entire results dict
+    def clean_dict_recursive(d):
+        """Recursively clean NaN/infinity from dict"""
+        if not isinstance(d, dict):
+            return d
+        cleaned = {}
+        for k, v in d.items():
+            if isinstance(v, (float, np.floating)):
+                try:
+                    if math.isnan(v) or math.isinf(v):
+                        v = 1.0 if 'p_value' in str(k) else 0.0
+                except:
+                    v = 0.0
+            elif isinstance(v, dict):
+                v = clean_dict_recursive(v)
+            elif isinstance(v, list):
+                cleaned_list = []
+                for item in v:
+                    if isinstance(item, dict):
+                        cleaned_list.append(clean_dict_recursive(item))
+                    elif isinstance(item, (float, np.floating)):
+                        try:
+                            if math.isnan(item) or math.isinf(item):
+                                cleaned_list.append(0.0)
+                            else:
+                                cleaned_list.append(item)
+                        except:
+                            cleaned_list.append(0.0)
+                    else:
+                        cleaned_list.append(item)
+                v = cleaned_list
+            cleaned[k] = v
+        return cleaned
+
     if isinstance(results, dict):
-        for key in ['p_value', 'effect_size']:
-            if key in results:
-                val = results[key]
-                if isinstance(val, (float, np.floating)):
-                    if math.isnan(val) or math.isinf(val):
-                        results[key] = 1.0 if key == 'p_value' else 0.0
+        results = clean_dict_recursive(results)
 
     # Convert all numpy types to native Python types for JSON serialization
     # Ensure all required fields are present with defaults if missing
