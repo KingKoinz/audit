@@ -1148,13 +1148,49 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
 
         cleaned_text = clean_json_string(response_text)
 
+        # Extract only the first complete JSON object (ignore extra data after closing brace)
+        def extract_json_object(text):
+            """Extract the first complete JSON object from text, ignoring anything after it."""
+            brace_count = 0
+            in_string = False
+            escape_next = False
+            start_idx = -1
+
+            for i, char in enumerate(text):
+                if escape_next:
+                    escape_next = False
+                    continue
+
+                if char == '\\':
+                    escape_next = True
+                    continue
+
+                if char == '"':
+                    in_string = not in_string
+                    continue
+
+                if not in_string:
+                    if char == '{':
+                        if start_idx == -1:
+                            start_idx = i
+                        brace_count += 1
+                    elif char == '}':
+                        brace_count -= 1
+                        if start_idx != -1 and brace_count == 0:
+                            return text[start_idx:i+1]
+
+            # If no complete object found, return the whole text
+            return text
+
+        json_text = extract_json_object(cleaned_text)
+
         # Try parsing the cleaned JSON
         try:
-            hypothesis_data = json.loads(cleaned_text)
+            hypothesis_data = json.loads(json_text)
         except json.JSONDecodeError:
             # Last resort: try with strict=False
             decoder = json.JSONDecoder(strict=False)
-            hypothesis_data = decoder.decode(cleaned_text)
+            hypothesis_data = decoder.decode(json_text)
     
     except json.JSONDecodeError as e:
         # Return the response so we can see what's wrong
