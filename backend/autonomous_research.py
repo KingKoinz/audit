@@ -635,6 +635,11 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
         # Check for exact hypothesis repeat (check ALL history to prevent infinite loops)
         for h in history[-200:]:
             if not h: continue
+            # HARD BLOCK: Never retest a hypothesis that failed verification or was disproven
+            if h.get('status') in ['failed_verification', 'disproven']:
+                hist_hyp = h.get('hypothesis', '').lower().strip()
+                if hist_hyp == new_hyp_lower:
+                    return False  # Reject: already tested and failed/disproven
             hist_hyp = h.get('hypothesis', '').lower().strip()
             # Exact match
             if hist_hyp == new_hyp_lower:
@@ -1439,6 +1444,15 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
                 else:
                     pursuit_mode_message = f"⏹️ VERIFICATION ENDED: Max attempts (5) reached. Pattern inconclusive."
                     end_pursuit(feed_key, "max_attempts")
+                    # Blacklist this failed hypothesis so it won't be retested
+                    history.append({
+                        'iteration': iteration,
+                        'hypothesis': hypothesis_data["hypothesis"],
+                        'test_method': test_method,
+                        'ai_reasoning': hypothesis_data.get('reasoning', ''),
+                        'status': 'failed_verification',
+                        'p_value': None
+                    })
             elif discovery["level"] in ["VERIFIED", "LEGENDARY"]:
                 # Pattern verified with 3+ persistence
                 pursuit_mode_message = f"🚨 PATTERN VERIFIED! Persisted across {persistence_count} tests. Exiting verification mode."
@@ -1462,6 +1476,15 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
             p_str = format(results['p_value'], '.4f') if results['p_value'] is not None else 'N/A'
             pursuit_mode_message = f"❌ FALSE POSITIVE DETECTED: Pattern dissolved (p={p_str}). Exiting verification mode."
             end_pursuit(feed_key, "disproven")
+            # Blacklist this disproven hypothesis so it won't be retested
+            history.append({
+                'iteration': iteration,
+                'hypothesis': hypothesis_data["hypothesis"],
+                'test_method': test_method,
+                'ai_reasoning': hypothesis_data.get('reasoning', ''),
+                'status': 'disproven',
+                'p_value': results["p_value"]
+            })
 
     else:
         # Not in pursuit mode - check if we should enter it
