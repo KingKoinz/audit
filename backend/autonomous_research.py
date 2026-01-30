@@ -1277,28 +1277,28 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
         try:
             # Handle different test methods and their parameters
             if test_method == "digit_ending":
-                results = test_func(draws_window, parameters.get("digit", 7), feed_key)
+                results = test_func(draws_window, int(parameters.get("digit", 7)), feed_key)
             elif test_method == "sum_range":
                 if "low" not in parameters or "high" not in parameters:
                     return {
                         "status": "error",
                         "message": "Test execution failed: Missing required parameter 'low' or 'high' for sum_range test"
                     }
-                results = test_func(draws_window, parameters["low"], parameters["high"])
+                results = test_func(draws_window, int(parameters["low"]), int(parameters["high"]))
             elif test_method == "bonus_correlation":
                 results = test_func(draws_window, feed_key)
             elif test_method == "day_of_week_bias":
-                results = test_func(draws_window, parameters.get("target_number", 7), parameters.get("target_day", 0))
+                results = test_func(draws_window, int(parameters.get("target_number", 7)), int(parameters.get("target_day", 0)))
             elif test_method == "month_bias":
-                results = test_func(draws_window, parameters.get("target_number", 7), parameters.get("target_month", 1))
+                results = test_func(draws_window, int(parameters.get("target_number", 7)), int(parameters.get("target_month", 1)))
             elif test_method == "seasonal_bias":
                 results = test_func(draws_window, parameters.get("target_number", 7), parameters.get("target_season", "summer"))
             elif test_method == "weekend_weekday_bias":
-                results = test_func(draws_window, parameters.get("target_number", 7))
+                results = test_func(draws_window, int(parameters.get("target_number", 7)))
             elif test_method == "temporal_persistence":
-                results = test_func(draws_window, parameters.get("target_number", 7), parameters.get("window_size", 30))
+                results = test_func(draws_window, int(parameters.get("target_number", 7)), int(parameters.get("window_size", 30)))
             elif test_method == "positional_bias":
-                results = test_func(draws_window, parameters.get("position", 0), feed_key)
+                results = test_func(draws_window, int(parameters.get("position", 0)), feed_key)
             elif test_method == "entropy":
                 results = test_func(draws_window, feed_key)
             else:
