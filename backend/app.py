@@ -937,6 +937,7 @@ class CSVImportRequest(BaseModel):
 async def ingest_manual_lottery(feed_key: str, request: CSVImportRequest):
     """
     Manually import lottery results via CSV content.
+    Directly inserts into database, bypassing fallback cache.
 
     CSV Format:
     draw_date,n1,n2,n3,n4,n5,bonus_ball
@@ -946,8 +947,9 @@ async def ingest_manual_lottery(feed_key: str, request: CSVImportRequest):
     Feed keys: 'powerball' or 'megamillions'
     """
     from backend.lottery_scraper import parse_lottery_csv
-    from backend.data_sources import add_manual_draws, FEEDS
-    from backend.ingest import ingest_all
+    from backend.data_sources import FEEDS
+    from backend.db import upsert_draws, init_db
+    from backend.research_journal import validate_prediction, init_research_db
 
     # Validate feed_key
     feed_names = {f.key for f in FEEDS}
@@ -955,26 +957,53 @@ async def ingest_manual_lottery(feed_key: str, request: CSVImportRequest):
         return {"error": f"Invalid feed_key. Must be one of: {', '.join(feed_names)}"}
 
     try:
+        # Initialize databases
+        init_db()
+        init_research_db()
+
         # Parse CSV
         csv_content = request.csv_content
         draws = parse_lottery_csv(csv_content, feed_key)
         if not draws:
             return {"error": "No valid draws parsed from CSV"}
 
-        # Add to fallback cache
-        added = add_manual_draws(feed_key, draws)
-        print(f"[MANUAL-IMPORT] Added {added} draws for {feed_key}")
+        # Convert parsed draws to database format
+        to_upsert = []
+        for draw in draws:
+            draw_date = draw.get('draw_date')
+            wn = draw.get('winning_numbers', '')
+            main_nums = [int(n) for n in wn.split()]
+            bonus = draw.get(feed_key)  # Either 'powerball' or 'megamillions' key
 
-        # Trigger re-ingest to process the new data
-        summary = await ingest_all()
-        print(f"[MANUAL-IMPORT] Re-ingest complete: {summary}")
+            if len(main_nums) >= 5 and bonus:
+                to_upsert.append((
+                    feed_key,
+                    draw_date,
+                    main_nums[0], main_nums[1], main_nums[2], main_nums[3], main_nums[4],
+                    bonus,
+                    ""  # multiplier field
+                ))
+
+        # Insert directly into database
+        inserted = upsert_draws(to_upsert)
+        print(f"[MANUAL-IMPORT] Inserted {inserted} draws for {feed_key}")
+
+        # Auto-validate predictions for the newly inserted draws
+        validated_count = 0
+        for row in to_upsert:
+            feed_key_col, draw_date, n1, n2, n3, n4, n5, bonus, mult = row
+            actual_numbers = [n1, n2, n3, n4, n5]
+            result = validate_prediction(feed_key_col, draw_date, actual_numbers)
+            if result.get("status") == "validated":
+                validated_count += 1
+                print(f"[MANUAL-IMPORT] Validated prediction for {feed_key_col} {draw_date}")
 
         return {
             "status": "success",
             "feed_key": feed_key,
             "draws_parsed": len(draws),
-            "draws_added": added,
-            "ingest_summary": summary
+            "draws_inserted": inserted,
+            "predictions_validated": validated_count
         }
 
     except Exception as e:
