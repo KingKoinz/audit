@@ -1,0 +1,22 @@
+INFO:     Started server process [62652]
+INFO:     Waiting for application startup.
+[STARTUP] Database has existing data. Skipping auto-ingestion.
+[STARTUP] Running daily predictions update...
+[DAILY-UPDATE] POWERBALL: Latest draw in DB is 2026-01-21
+[DAILY-UPDATE] Snapshot already exists for powerball draw 2026-01-31
+[DAILY-UPDATE] Generating Claude AI predictions for powerball draw 2026-01-31...
+[DAILY-UPDATE] Claude AI Prediction for powerball 2026-01-31:
+[DAILY-UPDATE]   Hot: [28, 53, 8, 62, 43] - These are the top 5 most frequently drawn numbers in the last 100 draws. Number 
+[DAILY-UPDATE]   Cold: [2, 42, 17, 9, 12] - These numbers have appeared only 5 times in 100 draws AND haven't been drawn rec
+[DAILY-UPDATE]   Overdue: [11, 27, 26, 55, 53] - These numbers show 0 draws since last appearance but have established historical
+[DAILY-UPDATE] MEGAMILLIONS: Latest draw in DB is 2026-01-23
+[DAILY-UPDATE] Snapshot already exists for megamillions draw 2026-01-30
+[DAILY-UPDATE] Generating Claude AI predictions for megamillions draw 2026-01-30...
+[DAILY-UPDATE] Claude AI Prediction for megamillions 2026-01-30:
+[DAILY-UPDATE]   Hot: [42, 10, 11, 17, 18] - These numbers have shown the highest frequency in the last 100 draws. Number 42 
+[DAILY-UPDATE]   Cold: [20, 25, 26, 35, 44] - These numbers have appeared only 4 times each in the last 100 draws - the lowest
+[DAILY-UPDATE]   Overdue: [30, 8, 56, 47, 70] - Number 30 typically appears 9 times per 100 draws but just appeared (0 draws ago
+[DAILY-UPDATE] Complete for all feeds
+[STARTUP] Daily predictions update complete!
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:3001 (Press CTRL+C to quit)

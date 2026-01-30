@@ -924,3 +924,81 @@ def unsubscribe_push(endpoint: str):
     conn.close()
 
     return {"success": deleted}
+
+
+# ============== MANUAL LOTTERY IMPORT ==============
+
+@app.post("/api/ingest/manual/{feed_key}")
+async def ingest_manual_lottery(feed_key: str, csv_content: str):
+    """
+    Manually import lottery results via CSV content.
+
+    CSV Format:
+    draw_date,n1,n2,n3,n4,n5,bonus_ball
+    2026-01-28,5,12,23,35,42,17
+    2026-01-29,8,15,27,39,48,22
+
+    Feed keys: 'powerball' or 'megamillions'
+    """
+    from backend.lottery_scraper import parse_lottery_csv
+    from backend.data_sources import add_manual_draws, FEEDS
+    from backend.ingest import ingest_all
+
+    # Validate feed_key
+    feed_names = {f.key for f in FEEDS}
+    if feed_key not in feed_names:
+        return {"error": f"Invalid feed_key. Must be one of: {', '.join(feed_names)}"}
+
+    try:
+        # Parse CSV
+        draws = parse_lottery_csv(csv_content, feed_key)
+        if not draws:
+            return {"error": "No valid draws parsed from CSV"}
+
+        # Add to fallback cache
+        added = add_manual_draws(feed_key, draws)
+        print(f"[MANUAL-IMPORT] Added {added} draws for {feed_key}")
+
+        # Trigger re-ingest to process the new data
+        summary = await ingest_all()
+        print(f"[MANUAL-IMPORT] Re-ingest complete: {summary}")
+
+        return {
+            "status": "success",
+            "feed_key": feed_key,
+            "draws_parsed": len(draws),
+            "draws_added": added,
+            "ingest_summary": summary
+        }
+
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[MANUAL-IMPORT ERROR] {tb}")
+        return {"error": str(e)}
+
+
+@app.get("/api/ingest/status")
+def get_ingest_status():
+    """
+    Get the status of data sources and cached data.
+    Shows which games have fallback data cached.
+    """
+    from backend.data_sources import _FALLBACK_CACHE, FEEDS
+
+    status = {
+        "socrata_fallback_active": bool(_FALLBACK_CACHE),
+        "cached_feeds": {},
+        "available_feeds": [f.key for f in FEEDS]
+    }
+
+    for feed_key, data in _FALLBACK_CACHE.items():
+        if data:
+            dates = [d.get('draw_date') for d in data if d.get('draw_date')]
+            status["cached_feeds"][feed_key] = {
+                "count": len(data),
+                "latest_date": max(dates) if dates else None,
+                "earliest_date": min(dates) if dates else None
+            }
+
+    return status
