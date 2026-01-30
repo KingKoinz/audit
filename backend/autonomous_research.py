@@ -707,8 +707,10 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
                             return False  # Any overlapping number = repeat
                     else:
                         # Extract number after pattern if present
-                        new_num = new_hyp_lower[new_hyp_lower.find(pattern) + len(pattern):].split()[0] if pattern in new_hyp_lower else ""
-                        hist_num = hist_lower[hist_lower.find(pattern) + len(pattern):].split()[0] if pattern in hist_lower else ""
+                        new_parts = new_hyp_lower[new_hyp_lower.find(pattern) + len(pattern):].split() if pattern in new_hyp_lower else []
+                        new_num = new_parts[0] if new_parts else ""
+                        hist_parts = hist_lower[hist_lower.find(pattern) + len(pattern):].split() if pattern in hist_lower else []
+                        hist_num = hist_parts[0] if hist_parts else ""
                         if new_num and hist_num and new_num == hist_num:
                             # Same pattern with same number - this is a repeat
                             return False
