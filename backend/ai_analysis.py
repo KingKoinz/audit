@@ -173,7 +173,7 @@ Remember: Real deviations are RARE. Most "patterns" are fake. When they vanish, 
 """
 
         message = client.messages.create(
-            model="claude-3-haiku-20240307",
+            model="claude-3-5-haiku-20241022",
             max_tokens=500,
             temperature=0.8,  # More creative for livestream entertainment
             messages=[

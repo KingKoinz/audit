@@ -978,7 +978,7 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
             # Increase temperature on retries to get more variety
             temp = 0.7 + (attempt * 0.2)  # 0.7, 0.9, 1.1 on retries
             message = client.messages.create(
-                model="claude-3-haiku-20240307",
+                model="claude-3-5-haiku-20241022",
                 max_tokens=500,
                 temperature=min(temp, 1.0),  # Cap at 1.0
                 messages=[{"role": "user", "content": prompt}]
