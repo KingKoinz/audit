@@ -928,8 +928,13 @@ def unsubscribe_push(endpoint: str):
 
 # ============== MANUAL LOTTERY IMPORT ==============
 
+from pydantic import BaseModel
+
+class CSVImportRequest(BaseModel):
+    csv_content: str
+
 @app.post("/api/ingest/manual/{feed_key}")
-async def ingest_manual_lottery(feed_key: str, csv_content: str):
+async def ingest_manual_lottery(feed_key: str, request: CSVImportRequest):
     """
     Manually import lottery results via CSV content.
 
@@ -951,6 +956,7 @@ async def ingest_manual_lottery(feed_key: str, csv_content: str):
 
     try:
         # Parse CSV
+        csv_content = request.csv_content
         draws = parse_lottery_csv(csv_content, feed_key)
         if not draws:
             return {"error": "No valid draws parsed from CSV"}
