@@ -632,8 +632,8 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
     def is_unique_hypothesis_reasoning(new_hypothesis, new_reasoning, new_method, history, overused):
         new_hyp_lower = new_hypothesis.lower().strip()
 
-        # Check for exact hypothesis repeat (expanded to 100 iterations for Mega Millions duplicate issue)
-        for h in history[-100:]:
+        # Check for exact hypothesis repeat (check ALL history to prevent infinite loops)
+        for h in history[-200:]:
             if not h: continue
             hist_hyp = h.get('hypothesis', '').lower().strip()
             # Exact match
@@ -677,23 +677,40 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
             'fibonacci', 'prime', 'perfect square',
         ]
 
-        # Check if we're repeating ANY pattern from the last 100 iterations
-        for h in history[-100:]:
+        # Check if we're repeating ANY pattern from the last 200 iterations (very strict)
+        for h in history[-200:]:
             if not h: continue
             hist_lower = h.get('hypothesis', '').lower()
+
+            # SIMPLE: If 70%+ of words match, it's a repeat
+            new_words = set(new_hyp_lower.split())
+            hist_words = set(hist_lower.split())
+            if new_words and hist_words:
+                overlap = len(new_words & hist_words) / max(len(new_words), len(hist_words))
+                if overlap > 0.70:  # 70% word overlap = likely same hypothesis
+                    return False
+
             # Check if any repetitive pattern matches between new and historical hypothesis
             for pattern in repetitive_patterns:
                 if pattern in new_hyp_lower and pattern in hist_lower:
-                    # Extract number after pattern if present
-                    new_num = new_hyp_lower[new_hyp_lower.find(pattern) + len(pattern):].split()[0] if pattern in new_hyp_lower else ""
-                    hist_num = hist_lower[hist_lower.find(pattern) + len(pattern):].split()[0] if pattern in hist_lower else ""
-                    if new_num and hist_num and new_num == hist_num:
-                        # Same pattern with same number - this is a repeat
-                        return False
-                    elif not new_num or not hist_num:
-                        # Pattern without number (like "fibonacci", "prime") - block if appeared recently
-                        if pattern in ['fibonacci', 'prime', 'perfect square']:
+                    # For "digit sum", "digit root", "digit ending" - block ALL if any number matches
+                    if pattern == 'digit ':
+                        import re
+                        new_nums = re.findall(r'\d+', new_hyp_lower)
+                        hist_nums = re.findall(r'\d+', hist_lower)
+                        if new_nums and hist_nums and any(n in hist_nums for n in new_nums):
+                            return False  # Any overlapping number = repeat
+                    else:
+                        # Extract number after pattern if present
+                        new_num = new_hyp_lower[new_hyp_lower.find(pattern) + len(pattern):].split()[0] if pattern in new_hyp_lower else ""
+                        hist_num = hist_lower[hist_lower.find(pattern) + len(pattern):].split()[0] if pattern in hist_lower else ""
+                        if new_num and hist_num and new_num == hist_num:
+                            # Same pattern with same number - this is a repeat
                             return False
+                        elif not new_num or not hist_num:
+                            # Pattern without number (like "fibonacci", "prime") - block if appeared recently
+                            if pattern in ['fibonacci', 'prime', 'perfect square']:
+                                return False
 
         # ENFORCE CATEGORY DIVERSITY - reject if same category 2+ times in last 3
         category_keywords = {
