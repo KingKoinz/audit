@@ -1307,34 +1307,64 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
         }
     
     else:
+        # Helper function to safely convert parameter to integer
+        def safe_int_param(params, key, default):
+            """Safely extract and convert a parameter to integer, using default if conversion fails."""
+            try:
+                val = params.get(key, default)
+                if isinstance(val, int):
+                    return val
+                # Try to extract numeric value from string (e.g., "7" or "repeated 7" -> 7)
+                if isinstance(val, str):
+                    import re
+                    match = re.search(r'\d+', val)
+                    if match:
+                        return int(match.group())
+                return int(val)
+            except (ValueError, TypeError, AttributeError):
+                return default
+
         # Run pre-built test with parameters
         test_func = PATTERN_TESTS[test_method]
-        
+
         try:
             # Handle different test methods and their parameters
             if test_method == "digit_ending":
-                results = test_func(draws_window, int(parameters.get("digit", 7)), feed_key)
+                digit = safe_int_param(parameters, "digit", 7)
+                results = test_func(draws_window, digit, feed_key)
             elif test_method == "sum_range":
                 if "low" not in parameters or "high" not in parameters:
                     return {
                         "status": "error",
                         "message": "Test execution failed: Missing required parameter 'low' or 'high' for sum_range test"
                     }
-                results = test_func(draws_window, int(parameters["low"]), int(parameters["high"]))
+                low = safe_int_param(parameters, "low", 100)
+                high = safe_int_param(parameters, "high", 150)
+                results = test_func(draws_window, low, high)
             elif test_method == "bonus_correlation":
                 results = test_func(draws_window, feed_key)
             elif test_method == "day_of_week_bias":
-                results = test_func(draws_window, int(parameters.get("target_number", 7)), int(parameters.get("target_day", 0)))
+                target_num = safe_int_param(parameters, "target_number", 7)
+                target_day = safe_int_param(parameters, "target_day", 0)
+                results = test_func(draws_window, target_num, target_day)
             elif test_method == "month_bias":
-                results = test_func(draws_window, int(parameters.get("target_number", 7)), int(parameters.get("target_month", 1)))
+                target_num = safe_int_param(parameters, "target_number", 7)
+                target_month = safe_int_param(parameters, "target_month", 1)
+                results = test_func(draws_window, target_num, target_month)
             elif test_method == "seasonal_bias":
-                results = test_func(draws_window, parameters.get("target_number", 7), parameters.get("target_season", "summer"))
+                target_num = safe_int_param(parameters, "target_number", 7)
+                target_season = parameters.get("target_season", "summer")
+                results = test_func(draws_window, target_num, target_season)
             elif test_method == "weekend_weekday_bias":
-                results = test_func(draws_window, int(parameters.get("target_number", 7)))
+                target_num = safe_int_param(parameters, "target_number", 7)
+                results = test_func(draws_window, target_num)
             elif test_method == "temporal_persistence":
-                results = test_func(draws_window, int(parameters.get("target_number", 7)), int(parameters.get("window_size", 30)))
+                target_num = safe_int_param(parameters, "target_number", 7)
+                window_size = safe_int_param(parameters, "window_size", 30)
+                results = test_func(draws_window, target_num, window_size)
             elif test_method == "positional_bias":
-                results = test_func(draws_window, int(parameters.get("position", 0)), feed_key)
+                position = safe_int_param(parameters, "position", 0)
+                results = test_func(draws_window, position, feed_key)
             elif test_method == "entropy":
                 results = test_func(draws_window, feed_key)
             else:
