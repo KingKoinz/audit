@@ -999,6 +999,16 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
             # Check uniqueness
             if not is_unique_hypothesis_reasoning(new_hypothesis, new_reasoning, new_method, history, overused_methods):
                 continue  # Retry if not unique
+
+            # EMERGENCY CHECK: Block if exact same hypothesis appears in last 5 iterations (catches uncategorized patterns)
+            new_hyp_lower = new_hypothesis.lower()
+            is_exact_repeat = False
+            for past_h in history[-5:]:
+                if past_h and past_h.get('hypothesis', '').lower() == new_hyp_lower:
+                    is_exact_repeat = True
+                    break
+            if is_exact_repeat:
+                continue  # Retry with different hypothesis
         else:
             # In pursuit mode - hypothesis_data already set
             new_hypothesis = hypothesis_data.get('hypothesis', '')
@@ -1019,6 +1029,10 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
                 if any(kw in new_hyp_lower for kw in keywords):
                     new_category = cat
                     break
+
+            # If no category matched, classify as OTHER (catches uncategorized like "harmonic resonance")
+            if not new_category:
+                new_category = 'OTHER'
 
             if new_category:
                 same_cat_count = 0
