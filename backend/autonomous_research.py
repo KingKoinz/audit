@@ -687,12 +687,12 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
             if not h: continue
             hist_lower = h.get('hypothesis', '').lower()
 
-            # SIMPLE: If 70%+ of words match, it's a repeat
+            # SIMPLE: If 50%+ of words match, it's a repeat (lowered from 70% for stricter diversity)
             new_words = set(new_hyp_lower.split())
             hist_words = set(hist_lower.split())
             if new_words and hist_words:
                 overlap = len(new_words & hist_words) / max(len(new_words), len(hist_words))
-                if overlap > 0.70:  # 70% word overlap = likely same hypothesis
+                if overlap > 0.50:  # 50% word overlap = likely same hypothesis (tightened)
                     return False
 
             # Check if any repetitive pattern matches between new and historical hypothesis
@@ -712,7 +712,7 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
                         hist_parts = hist_lower[hist_lower.find(pattern) + len(pattern):].split() if pattern in hist_lower else []
                         hist_num = hist_parts[0] if hist_parts else ""
                         if new_num and hist_num and new_num == hist_num:
-                            # Same pattern with same number - this is a repeat
+                            # Same pattern with same number - this is a repeat (even with different modifiers)
                             return False
                         elif not new_num or not hist_num:
                             # Pattern without number (like "fibonacci", "prime") - block if appeared recently
@@ -746,7 +746,7 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
                         if cat == new_category:
                             same_cat_count += 1
                         break
-            if same_cat_count >= 3:  # Block if same category appears 3+ times in last 15
+            if same_cat_count >= 2:  # Block if same category appears 2+ times in last 15 (stricter diversity)
                 return False
 
         return True
