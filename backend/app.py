@@ -23,7 +23,13 @@ app.mount("/static", StaticFiles(directory="frontend"), name="static")
 # Background scheduler for daily prediction updates
 scheduler = BackgroundScheduler()
 
-# Cache for autonomous research results (updated by background job every 5 minutes)
+# Activity tracking for hybrid online/offline research intervals
+import time
+_last_api_request_time = None
+_last_research_run_time = None
+_activity_timeout = 5 * 60  # 5 minutes: if no requests, assume offline
+
+# Cache for autonomous research results (updated by background job every 5 minutes when online)
 _cached_research_results = {
     "feeds": ["powerball", "megamillions"],
     "games": ["Powerball (Test A)", "Mega Millions (Test B)"],
@@ -32,12 +38,33 @@ _cached_research_results = {
     "test_values": [{}, {}],
     "error": "",
     "last_update": None,
-    "status": "initializing"
+    "status": "initializing",
+    "is_online": False
 }
 
 def scheduled_autonomous_research():
-    """Run autonomous research for both games in background (every 5 minutes)"""
-    global _cached_research_results
+    """
+    Run autonomous research with intelligent interval based on user activity.
+    - ONLINE (recent API requests): Every 300 seconds (5 minutes)
+    - OFFLINE (no API requests for 5+ minutes): Every 3600 seconds (1 hour)
+    """
+    global _cached_research_results, _last_api_request_time, _last_research_run_time
+
+    now = time.time()
+
+    # Determine if user is online based on recent API activity
+    is_online = _last_api_request_time and (now - _last_api_request_time) < _activity_timeout
+
+    # Determine required interval based on activity
+    required_interval = 300 if is_online else 3600  # 5 min online, 1 hour offline
+
+    # Skip if not enough time has passed since last research
+    if _last_research_run_time and (now - _last_research_run_time) < (required_interval * 0.9):  # 90% threshold
+        status = "ONLINE" if is_online else "OFFLINE"
+        elapsed = now - _last_research_run_time
+        print(f"[SCHEDULER] Skipping research ({status}): {elapsed:.0f}s since last run, need {required_interval}s")
+        return
+
     try:
         print("[SCHEDULER] Running scheduled autonomous research...")
         from backend.autonomous_research import run_autonomous_research
@@ -95,6 +122,7 @@ def scheduled_autonomous_research():
 
         # Update cache
         import datetime
+        _last_research_run_time = now
         _cached_research_results = {
             "feeds": [feed_A, feed_B],
             "games": ["Powerball (Test A)", "Mega Millions (Test B)"],
@@ -103,10 +131,13 @@ def scheduled_autonomous_research():
             "test_values": [test_values_A, test_values_B],
             "error": (rA.get('message') if rA.get('status') == 'error' else '') + (rB.get('message') if rB.get('status') == 'error' else ''),
             "last_update": datetime.datetime.now().isoformat(),
-            "status": "complete"
+            "status": "complete",
+            "is_online": is_online,
+            "next_interval": 300 if is_online else 3600
         }
 
-        print("[SCHEDULER] Autonomous research update complete")
+        status_str = "🟢 ONLINE (5min cadence)" if is_online else "🔴 OFFLINE (1hr cadence)"
+        print(f"[SCHEDULER] Autonomous research update complete - {status_str}")
         print(f"[SCHEDULER] Test A: {rA.get('hypothesis', 'error')[:50] if rA.get('hypothesis') else rA.get('status', 'unknown')}")
         print(f"[SCHEDULER] Test B: {rB.get('hypothesis', 'error')[:50] if rB.get('hypothesis') else rB.get('status', 'unknown')}")
         import sys
@@ -140,6 +171,11 @@ scheduler.add_job(scheduled_autonomous_research, 'interval', seconds=300, id='au
 scheduler.add_job(scheduled_predictions_update, 'interval', hours=24, id='daily_predictions')
 scheduler.start()
 atexit.register(lambda: scheduler.shutdown())
+
+def track_activity():
+    """Track that user is actively using the app (for online/offline detection)"""
+    global _last_api_request_time
+    _last_api_request_time = time.time()
 
 @app.on_event("startup")
 async def _startup():
@@ -388,12 +424,14 @@ def health():
 
 @app.get("/api/recent/{feed_key}")
 def recent(feed_key: str):
+    track_activity()  # User is actively using the app
     rolling = int(os.getenv("ROLLING_DRAWS", "120"))
     draws = get_recent_draws(feed_key, rolling)
     return {"feed": feed_key, "rolling": rolling, "draws": draws}
 
 @app.get("/api/bait/{feed_key}")
 def bait(feed_key: str):
+    track_activity()  # User is actively using the app
     draws = get_recent_draws(feed_key, 5000)
     window = 50
     result = hot_cold_overdue(draws, feed_key, window=window)
@@ -469,6 +507,7 @@ def bait(feed_key: str):
 
 @app.get("/api/monte/{feed_key}")
 def monte(feed_key: str):
+    track_activity()  # User is actively using the app
     try:
         draws = get_recent_draws(feed_key, 500)
         result = monte_carlo_band(draws, feed_key, sims=500)
@@ -590,10 +629,14 @@ def research(feed_key: str):
 def research_auto():
     """
     Autonomous AI research with automatic game rotation.
-    Returns cached results from background scheduler (updates every 5 minutes).
+    Returns cached results from background scheduler (updates every 5 minutes when online).
     No longer blocks on Claude API calls - results are pre-computed.
+    Tracks user activity to switch between 5-minute (online) and 1-hour (offline) cadences.
     """
     global _cached_research_results
+
+    # Track that user is online (API request made)
+    track_activity()
 
     try:
         import copy
@@ -660,6 +703,7 @@ def get_predictions(feed_key: str):
     Get prediction tracking statistics and recent results.
     Shows how well hot/cold/overdue classifications predict actual draws.
     """
+    track_activity()  # User is actively using the app
     from backend.research_journal import (
         get_prediction_stats,
         get_recent_predictions,
