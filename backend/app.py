@@ -158,7 +158,7 @@ async def daily_predictions_update():
                     print(f"[DAILY-UPDATE] Snapshot already exists for {feed_key} draw {next_draw_date}")
                     sys.stdout.flush()
 
-                # STEP 3: Generate Claude AI predictions for this draw
+                # STEP 3: Generate Claude AI predictions for this draw (hot/cold/overdue)
                 try:
                     print(f"[DAILY-UPDATE] Generating Claude AI predictions for {feed_key} draw {next_draw_date}...")
                     sys.stdout.flush()
@@ -183,6 +183,38 @@ async def daily_predictions_update():
                     sys.stdout.flush()
                 except Exception as e:
                     print(f"[DAILY-UPDATE] Error generating AI predictions for {feed_key}: {e}")
+                    sys.stdout.flush()
+
+                # STEP 4: Generate lottery number predictions based on CANDIDATE patterns
+                try:
+                    from backend.lottery_predictions import get_top_candidate_patterns, synthesize_lottery_prediction, save_lottery_prediction
+
+                    print(f"[DAILY-UPDATE] Generating lottery predictions from CANDIDATE patterns for {feed_key} {next_draw_date}...")
+                    sys.stdout.flush()
+
+                    patterns = get_top_candidate_patterns(feed_key, limit=20)
+                    if patterns:
+                        max_num = RANGES[feed_key]["main_max"]
+                        bonus_max = RANGES[feed_key]["bonus_max"]
+                        prediction = synthesize_lottery_prediction(feed_key, patterns, max_num, bonus_max)
+
+                        save_lottery_prediction(
+                            feed_key=feed_key,
+                            draw_date=next_draw_date,
+                            numbers=prediction["numbers"],
+                            bonus=prediction["bonus"],
+                            reasoning=prediction["reasoning"]
+                        )
+
+                        print(f"[DAILY-UPDATE] Lottery prediction for {feed_key} {next_draw_date}: {prediction['numbers']} + {prediction['bonus']}")
+                        sys.stdout.flush()
+                    else:
+                        print(f"[DAILY-UPDATE] No CANDIDATE patterns found for {feed_key} yet")
+                        sys.stdout.flush()
+                except Exception as e:
+                    print(f"[DAILY-UPDATE] Error generating lottery predictions for {feed_key}: {e}")
+                    import traceback
+                    traceback.print_exc()
                     sys.stdout.flush()
 
             conn.close()

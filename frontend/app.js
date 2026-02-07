@@ -1375,6 +1375,21 @@ async function refreshAll(){
     }
     updateCountdown();
     $('updatedAt').textContent = `Updated: ${fmtTime()}`;
+
+    // === REFRESH PREDICTIONS & STATS (only on data updates) ===
+    // These only change when new draws occur (4x per week), so we check if
+    // the latest draw date has changed before refreshing
+    try {
+      const currentDrawDate = bait?.latest_draw_date;
+      if (currentDrawDate && currentDrawDate !== window.lastDrawDateSeen) {
+        window.lastDrawDateSeen = currentDrawDate;
+        console.log('[PREDICTIONS] New draw detected:', currentDrawDate, '- updating predictions');
+        displayLotteryPredictions();
+        loadPredictionStats();
+      }
+    } catch(predErr) {
+      console.warn('[PREDICTIONS] Error updating predictions:', predErr);
+    }
   } catch(err) {
     console.error('Error in refreshAll:', err);
     $('statusLine').textContent = `Error: ${err.message}`;
@@ -1530,8 +1545,11 @@ function renderResearchBlock(r, dualMode=false) {
 function startLoop(){
   // Rotate myths immediately
   rotateMyths();
-  // Load prediction stats initially
+  // Load prediction stats and lottery predictions initially
   loadPredictionStats();
+  displayLotteryPredictions();
+  // Initialize draw date tracking
+  window.lastDrawDateSeen = null;
   // Rotate between panels every 15 seconds
   setInterval(rotatePanels, 15000);
   
