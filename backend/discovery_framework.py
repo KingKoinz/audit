@@ -69,6 +69,7 @@ def classify_discovery(p_value: float, effect_size: float, persistence_count: in
         }
     
     # Verified (strong evidence with persistence)
+    # STRICT: ALL THREE conditions must be true - do not relax any
     if p_value < 0.01 and abs(effect_size) > 0.2 and persistence_count >= 3:
         return {
             "level": "VERIFIED",
@@ -78,6 +79,7 @@ def classify_discovery(p_value: float, effect_size: float, persistence_count: in
         }
     
     # Candidate (needs verification)
+    # Requires: p < 0.01 AND effect_size > 0.2 (effect_size MUST be substantial)
     if p_value < 0.01 and abs(effect_size) > 0.2:
         return {
             "level": "CANDIDATE",
@@ -95,7 +97,17 @@ def classify_discovery(p_value: float, effect_size: float, persistence_count: in
             "confidence": 90.0,
             **DISCOVERY_LEVELS["INTERESTING"]
         }
-    
+
+    # Edge case: p < 0.01 but weak effect (should not reach here, but catch it)
+    if p_value < 0.01 and abs(effect_size) > 0.1:
+        return {
+            "level": "INTERESTING",
+            "verified": False,
+            "confidence": 85.0,
+            "note": "Statistically significant but weak effect size - does not meet CANDIDATE threshold",
+            **DISCOVERY_LEVELS["INTERESTING"]
+        }
+
     # Noise (random variation)
     return {
         "level": "NOISE",
