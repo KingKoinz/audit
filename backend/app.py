@@ -669,6 +669,87 @@ def research_auto():
             "test_values": [{}, {}]
         }
 
+@app.get("/api/research-carousel")
+def research_carousel():
+    """
+    Returns a rotating carousel of recent research iterations (changes every 2 minutes).
+    Pulls from recent research journal entries and rotates between them for visual variety.
+    Updates more frequently than the main research cache (which updates every 5 minutes).
+    """
+    global _cached_research_results
+
+    track_activity()
+
+    try:
+        from backend.research_journal import get_recent_research
+        import time
+
+        # Get recent iterations for both games
+        powerball_recent = get_recent_research('powerball', limit=20)
+        megamillions_recent = get_recent_research('megamillions', limit=20)
+
+        # Use timestamp to rotate (changes every 2 minutes = 120 seconds)
+        current_time = int(time.time())
+        rotation_cycle = current_time // 120  # New rotation every 2 minutes
+
+        # Select which iteration to show from recent history (rotates through them)
+        pb_idx = rotation_cycle % max(1, len(powerball_recent)) if powerball_recent else 0
+        mm_idx = rotation_cycle % max(1, len(megamillions_recent)) if megamillions_recent else 0
+
+        # Stagger the rotations (alternate which game is "primary")
+        if rotation_cycle % 2 == 1:
+            pb_idx, mm_idx = mm_idx, pb_idx
+
+        pb_entry = powerball_recent[pb_idx] if pb_idx < len(powerball_recent) else {}
+        mm_entry = megamillions_recent[mm_idx] if mm_idx < len(megamillions_recent) else {}
+
+        # Build carousel result (similar structure to cached results)
+        carousel_result = {
+            "feeds": ["powerball", "megamillions"],
+            "games": ["Powerball (Carousel)", "Mega Millions (Carousel)"],
+            "research": [pb_entry, mm_entry],
+            "recent_histories": [powerball_recent[:5], megamillions_recent[:5]],
+            "test_values": [
+                {
+                    "iteration": pb_entry.get("iteration"),
+                    "hypothesis": pb_entry.get("hypothesis"),
+                    "test_method": pb_entry.get("test_method"),
+                    "p_value": pb_entry.get("p_value"),
+                    "effect_size": pb_entry.get("effect_size"),
+                    "viable": pb_entry.get("viable"),
+                },
+                {
+                    "iteration": mm_entry.get("iteration"),
+                    "hypothesis": mm_entry.get("hypothesis"),
+                    "test_method": mm_entry.get("test_method"),
+                    "p_value": mm_entry.get("p_value"),
+                    "effect_size": mm_entry.get("effect_size"),
+                    "viable": mm_entry.get("viable"),
+                }
+            ],
+            "carousel": True,
+            "rotation_cycle": rotation_cycle,
+            "next_rotation_in": 120 - (current_time % 120),
+            "last_update": _cached_research_results.get("last_update"),
+            "status": "carousel"
+        }
+
+        return carousel_result
+
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[CAROUSEL ERROR] {tb}")
+        return {
+            "error": str(e),
+            "status": "error",
+            "carousel": True,
+            "feeds": ["powerball", "megamillions"],
+            "games": ["Powerball (Carousel)", "Mega Millions (Carousel)"],
+            "research": [{}, {}],
+            "test_values": [{}, {}]
+        }
+
 @app.get("/api/hot-numbers/{feed_key}")
 def get_hot_numbers(feed_key: str, window_days: int = 90):
     """

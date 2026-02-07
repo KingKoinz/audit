@@ -1400,6 +1400,47 @@ async function refreshAll(){
     $('statusLine').textContent = `Error: ${err.message}`;
     $('researchOut').innerHTML = `<div style='color:#ff6b35;'>${err.message}</div>`;
   }
+}
+
+// Carousel refresh - updates research display every 2 minutes with rotated results
+// This keeps the UI dynamic without increasing computation costs
+async function refreshCarousel() {
+  try {
+    // Get carousel data (rotates through recent research every 2 minutes)
+    const carousel = await jget(`/api/research-carousel`);
+
+    if (!carousel || carousel.error) {
+      console.log('[CAROUSEL] No carousel data:', carousel?.error || 'unknown');
+      return; // Don't update if carousel fails
+    }
+
+    const feeds = carousel.feeds || [];
+    const games = carousel.games || [];
+    const researchArr = carousel.research || [];
+    const histories = carousel.recent_histories || [];
+
+    if (!feeds.length || !games.length || !researchArr.length) {
+      console.log('[CAROUSEL] Incomplete carousel data');
+      return;
+    }
+
+    // Update the research display with rotated results
+    renderDualResearch(games, researchArr, histories);
+
+    // Show which iteration we're viewing
+    const nextIn = carousel.next_rotation_in || 120;
+    const rotationNum = carousel.rotation_cycle || 0;
+    console.log(`[CAROUSEL] Updated (rotation ${rotationNum}, next in ${nextIn}s)`);
+
+  } catch(err) {
+    console.warn('[CAROUSEL] Error updating carousel:', err.message);
+    // Don't show error - carousel is just for eye candy
+  }
+}
+
+// Start carousel refresh (every 2 minutes for visual variety)
+setInterval(refreshCarousel, 120000);
+
 // Render two research results stacked in the same panel
 function renderDualResearch(games, researchArr, histories) {
   if (!researchArr || researchArr.length < 2) {
