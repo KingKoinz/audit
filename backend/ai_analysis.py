@@ -20,6 +20,12 @@ def get_pattern_history(feed_key: str) -> List[Dict]:
     """Get historical pattern tracking for this feed."""
     return _pattern_history.get(feed_key, [])[-5:]  # Last 5 analyses
 
+def clear_analysis_cache():
+    """Clear stale analysis cache - useful when new data arrives."""
+    global _last_analysis_cache
+    _last_analysis_cache.clear()
+    return {"status": "success", "message": "Analysis cache cleared"}
+
 def _track_pattern(feed_key: str, analysis: str, severity: str, p_value: float):
     """Track pattern over time to detect persistence or vanishing."""
     if feed_key not in _pattern_history:

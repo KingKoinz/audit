@@ -422,6 +422,14 @@ def service_worker():
 def health():
     return {"ok": True}
 
+@app.get("/api/cache/clear")
+def clear_cache():
+    """Clear stale analysis cache to refresh data displays"""
+    track_activity()
+    from backend.ai_analysis import clear_analysis_cache
+    result = clear_analysis_cache()
+    return {"status": "success", "message": "Analysis cache cleared - UI will refresh on next data fetch"}
+
 @app.get("/api/recent/{feed_key}")
 def recent(feed_key: str):
     track_activity()  # User is actively using the app
