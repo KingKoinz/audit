@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import asyncio
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -8,6 +9,8 @@ from backend.db import init_db, get_recent_draws, get_all_draws, has_any_draws
 from backend.audit import hot_cold_overdue, heatmap_matrix, monte_carlo_band
 from backend.research_journal import init_research_db
 from dotenv import load_dotenv
+from apscheduler.schedulers.background import BackgroundScheduler
+import atexit
 
 # Load environment variables
 load_dotenv()
@@ -16,6 +19,28 @@ app = FastAPI(title="ENTROPY Audit")
 
 # Serve frontend
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
+
+# Background scheduler for daily prediction updates
+scheduler = BackgroundScheduler()
+
+def scheduled_predictions_update():
+    """Run daily predictions update in background"""
+    try:
+        print("[SCHEDULER] Running scheduled daily predictions update...")
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(daily_predictions_update())
+        loop.close()
+        print("[SCHEDULER] Scheduled update complete")
+    except Exception as e:
+        print(f"[SCHEDULER] Error in scheduled update: {e}")
+        import traceback
+        traceback.print_exc()
+
+# Start scheduler and register cleanup
+scheduler.add_job(scheduled_predictions_update, 'interval', hours=24, id='daily_predictions')
+scheduler.start()
+atexit.register(lambda: scheduler.shutdown())
 
 @app.on_event("startup")
 async def _startup():
