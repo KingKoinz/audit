@@ -1489,11 +1489,50 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
     else:
         persistence_count = track_persistence(feed_key, hypothesis_data["hypothesis"], results["p_value"])
 
+    # Collect window history for consistency validation (verification mode only)
+    effect_sizes_history = None
+    p_values_history = None
+    window_sizes_history = None
+
+    if in_pursuit_mode and pursuit.get("verification_windows"):
+        # Get historical p-values and effect_sizes from this pursuit
+        recent = get_recent_research(feed_key, limit=100)
+
+        # Filter to only entries matching this exact hypothesis during pursuit
+        pursuit_entries = [
+            r for r in recent
+            if r.get('hypothesis') == hypothesis_data["hypothesis"]
+            and r.get('p_value') is not None
+        ]
+
+        if pursuit_entries:
+            # Sort by iteration to get chronological order
+            pursuit_entries.sort(key=lambda x: x.get('iteration', 0))
+            effect_sizes_history = [r.get('effect_size', 0.0) for r in pursuit_entries]
+            p_values_history = [r.get('p_value', 1.0) for r in pursuit_entries]
+
+            # Get window sizes from verification_windows
+            windows = json.loads(pursuit["verification_windows"]) if isinstance(pursuit["verification_windows"], str) else pursuit["verification_windows"]
+            window_sizes_history = []
+            for window in windows:
+                # Count draws in each window from the draws list
+                window_start = window.get("start_date")
+                window_end = window.get("end_date")
+                if window_start and window_end:
+                    draws_in_window = [
+                        d for d in draws
+                        if window_start <= str(d.get('draw_date', '')) <= window_end
+                    ]
+                    window_sizes_history.append(len(draws_in_window))
+
     # Classify the discovery
     discovery = classify_discovery(
         p_value=results["p_value"],
         effect_size=results["effect_size"],
-        persistence_count=persistence_count
+        persistence_count=persistence_count,
+        effect_sizes_history=effect_sizes_history,
+        p_values_history=p_values_history,
+        window_sizes_history=window_sizes_history
     )
 
     # Add discovery to findings for storage and ensure it's clean
