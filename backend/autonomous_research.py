@@ -738,7 +738,7 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
 
         if new_category:
             same_cat_count = 0
-            for h in history[-15:]:  # Extended from 3 to 15 iterations for better category diversity
+            for h in history[-10:]:  # Check last 10 iterations (not 15 - stricter window)
                 if not h: continue
                 hist_lower = h.get('hypothesis', '').lower()
                 for cat, keywords in category_keywords.items():
@@ -746,7 +746,7 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
                         if cat == new_category:
                             same_cat_count += 1
                         break
-            if same_cat_count >= 2:  # Block if same category appears 2+ times in last 15 (stricter diversity)
+            if same_cat_count >= 2:  # HARD BLOCK: same category 2+ times in last 10 = reject
                 return False
 
         return True
@@ -1109,14 +1109,20 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
                         same_category_count += 1
 
             # Retry if too similar or same category too often
-            if too_similar or same_category_count >= 3:
+            # STRICT: >= 2 not >= 3, and NO FALLBACK (diversity is non-negotiable)
+            if too_similar or same_category_count >= 2:
                 if attempt < max_retries - 1:
+                    print(f"[DIVERSITY] Rejection: too_similar={too_similar}, same_category_count={same_category_count}. Retrying...")
                     continue  # Retry with different hypothesis
                 else:
-                    # Max retries hit - ACCEPT anyway with warning (fallback like Test B custom test)
-                    # Better to run an imperfect test than fail completely
-                    print(f"[DIVERSITY FALLBACK] Max retries hit, accepting hypothesis despite diversity concern")
-                    break
+                    # Max retries hit - this is a hard failure, Claude should have rotated categories
+                    print(f"[DIVERSITY HARD BLOCK] Failed to generate diverse hypothesis after {max_retries} attempts. Forcing manual diversification...")
+                    # Instead of accepting bad hypothesis, keep the last good one or error out
+                    return {
+                        "status": "error",
+                        "message": f"AI unable to diversify after {max_retries} attempts. Stuck on {current_category} category.",
+                        "hint": "Reduce research cadence or manually reset hypothesis exploration"
+                    }
 
         # Accept this response
         break
