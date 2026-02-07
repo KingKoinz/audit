@@ -1386,10 +1386,22 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
         # Run pre-built test with parameters
         test_func = PATTERN_TESTS[test_method]
 
+        # Get game ranges for parameter validation
+        from backend.audit import RANGES
+        game_range = RANGES.get(feed_key, {"main_min": 1, "main_max": 69})
+        max_num = game_range["main_max"]
+        bonus_max = game_range["bonus_max"]
+
         try:
             # Handle different test methods and their parameters
             if test_method == "digit_ending":
                 digit = safe_int_param(parameters, "digit", 7)
+                # Validate digit (0-9)
+                if not (0 <= digit <= 9):
+                    return {
+                        "status": "error",
+                        "message": f"Invalid parameter: digit must be 0-9, got {digit}"
+                    }
                 results = test_func(draws_window, digit, feed_key)
             elif test_method == "sum_range":
                 if "low" not in parameters or "high" not in parameters:
@@ -1405,21 +1417,71 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
             elif test_method == "day_of_week_bias":
                 target_num = safe_int_param(parameters, "target_number", 7)
                 target_day = safe_int_param(parameters, "target_day", 0)
+                # Validate target number is in valid range for this game
+                if not (1 <= target_num <= max_num):
+                    return {
+                        "status": "error",
+                        "message": f"Invalid parameter: target_number must be 1-{max_num} for {feed_key}, got {target_num}"
+                    }
+                if not (0 <= target_day <= 6):
+                    return {
+                        "status": "error",
+                        "message": f"Invalid parameter: target_day must be 0-6, got {target_day}"
+                    }
                 results = test_func(draws_window, target_num, target_day)
             elif test_method == "month_bias":
                 target_num = safe_int_param(parameters, "target_number", 7)
                 target_month = safe_int_param(parameters, "target_month", 1)
+                # Validate parameters
+                if not (1 <= target_num <= max_num):
+                    return {
+                        "status": "error",
+                        "message": f"Invalid parameter: target_number must be 1-{max_num} for {feed_key}, got {target_num}"
+                    }
+                if not (1 <= target_month <= 12):
+                    return {
+                        "status": "error",
+                        "message": f"Invalid parameter: target_month must be 1-12, got {target_month}"
+                    }
                 results = test_func(draws_window, target_num, target_month)
             elif test_method == "seasonal_bias":
                 target_num = safe_int_param(parameters, "target_number", 7)
                 target_season = parameters.get("target_season", "summer")
+                # Validate parameters
+                if not (1 <= target_num <= max_num):
+                    return {
+                        "status": "error",
+                        "message": f"Invalid parameter: target_number must be 1-{max_num} for {feed_key}, got {target_num}"
+                    }
+                if target_season not in ["winter", "spring", "summer", "fall"]:
+                    return {
+                        "status": "error",
+                        "message": f"Invalid parameter: target_season must be one of [winter, spring, summer, fall], got {target_season}"
+                    }
                 results = test_func(draws_window, target_num, target_season)
             elif test_method == "weekend_weekday_bias":
                 target_num = safe_int_param(parameters, "target_number", 7)
+                # Validate target number
+                if not (1 <= target_num <= max_num):
+                    return {
+                        "status": "error",
+                        "message": f"Invalid parameter: target_number must be 1-{max_num} for {feed_key}, got {target_num}"
+                    }
                 results = test_func(draws_window, target_num)
             elif test_method == "temporal_persistence":
                 target_num = safe_int_param(parameters, "target_number", 7)
                 window_size = safe_int_param(parameters, "window_size", 30)
+                # Validate parameters
+                if not (1 <= target_num <= max_num):
+                    return {
+                        "status": "error",
+                        "message": f"Invalid parameter: target_number must be 1-{max_num} for {feed_key}, got {target_num}"
+                    }
+                if window_size < 1:
+                    return {
+                        "status": "error",
+                        "message": f"Invalid parameter: window_size must be positive, got {window_size}"
+                    }
                 results = test_func(draws_window, target_num, window_size)
             elif test_method == "positional_bias":
                 position = safe_int_param(parameters, "position", 0)
