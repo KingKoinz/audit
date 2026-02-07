@@ -1439,7 +1439,12 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
         hypothesis_data["reasoning"] = f"[VERIFICATION] Re-testing: {original_hypothesis[:90]}... | Attempt {pursuit['pursuit_attempts'] + 1}/5: {viable_status} | p={p_str}, effect={e_str}"
 
     # Track persistence for verification
-    persistence_count = track_persistence(feed_key, hypothesis_data["hypothesis"], results["p_value"])
+    # In verification mode: use actual attempt count. In exploration: use research history tracking
+    if in_pursuit_mode:
+        # Use the number of verification attempts already completed
+        persistence_count = pursuit["pursuit_attempts"]
+    else:
+        persistence_count = track_persistence(feed_key, hypothesis_data["hypothesis"], results["p_value"])
 
     # Classify the discovery
     discovery = classify_discovery(
