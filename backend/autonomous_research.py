@@ -970,16 +970,16 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
 - Set creativity_score (1-10) based on how novel your hypothesis is
 - If test_method="custom", MUST include custom_test_logic field
 - EXAMPLE VALID FORMAT:
-  {
+  {{
     "hypothesis": "Numbers ending in 7 appear more frequently",
     "test_method": "digit_ending",
-    "parameters": {"digit": 7},
+    "parameters": {{"digit": 7}},
     "reasoning": "Testing if digit bias exists for 7s",
     "iteration": 1,
     "next_interval_seconds": 120,
     "interval_reasoning": "Standard check interval",
     "creativity_score": 3
-  }
+  }}
 
 **CRITICAL: DECIDE YOUR NEXT RESEARCH INTERVAL (30 sec to 30 min)**
 - If you found VIABLE pattern: Speed up (60-120s) to verify persistence
