@@ -958,11 +958,25 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
 - These tests check if ELEVATED STATISTICAL OCCURRENCES of numbers correlate with draw dates!
 
 **CRITICAL JSON RULES:**
-- All string values MUST be on a single line (no line breaks inside strings)
-- Escape any quotes inside strings with backslash
-- Keep it simple and valid JSON
+- All string values MUST be on a single line (no line breaks, no paragraph breaks)
+- NO special quote marks: use only straight double quotes (")
+- Escape any quotes inside strings with backslash: \"
+- NO emojis, fancy dashes, or Unicode special characters in JSON values
+- Keep strings SHORT and SIMPLE - maximum 150 characters per string
+- Valid JSON ONLY - test it before responding
 - Set creativity_score (1-10) based on how novel your hypothesis is
 - If test_method="custom", MUST include custom_test_logic field
+- EXAMPLE VALID FORMAT:
+  {
+    "hypothesis": "Numbers ending in 7 appear more frequently",
+    "test_method": "digit_ending",
+    "parameters": {"digit": 7},
+    "reasoning": "Testing if digit bias exists for 7s",
+    "iteration": 1,
+    "next_interval_seconds": 120,
+    "interval_reasoning": "Standard check interval",
+    "creativity_score": 3
+  }
 
 **CRITICAL: DECIDE YOUR NEXT RESEARCH INTERVAL (30 sec to 30 min)**
 - If you found VIABLE pattern: Speed up (60-120s) to verify persistence
@@ -1159,8 +1173,8 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
                     result.append(char)
                     in_string = not in_string
                 elif in_string and char in '\n\r\t':
-                    # Remove newlines, carriage returns, and tabs inside strings
-                    continue
+                    # Replace newlines, carriage returns, and tabs with space inside strings
+                    result.append(' ')
                 else:
                     result.append(char)
             # If we end inside a string, forcibly close it
@@ -1169,6 +1183,12 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
             return ''.join(result)
 
         cleaned_text = clean_json_string(response_text)
+
+        # Additional cleanup: fix common JSON issues
+        # Replace smart quotes and other special characters that break JSON
+        cleaned_text = cleaned_text.replace('"', '"').replace('"', '"').replace(''', "'").replace(''', "'")
+        # Remove any remaining control characters
+        cleaned_text = ''.join(char for char in cleaned_text if ord(char) >= 32 or char in '\n\r\t')
 
         # Extract only the first complete JSON object (ignore extra data after closing brace)
         def extract_json_object(text):
@@ -1209,10 +1229,24 @@ Propose your next hypothesis NOW with your chosen interval. Be autonomous and CR
         # Try parsing the cleaned JSON
         try:
             hypothesis_data = json.loads(json_text)
-        except json.JSONDecodeError:
-            # Last resort: try with strict=False
-            decoder = json.JSONDecoder(strict=False)
-            hypothesis_data = decoder.decode(json_text)
+        except json.JSONDecodeError as e:
+            # Attempt to auto-fix common JSON issues
+            # Issue: missing comma between fields
+            if "Expecting ',' delimiter" in str(e):
+                # Try to fix by adding commas before opening braces/quotes that follow other content
+                import re
+                fixed_text = re.sub(r'(\}|\]|")\s*\n\s*("[{])', r'\1, \2', json_text)
+                fixed_text = re.sub(r'(\}|\]|")\s*("[{])', r'\1, \2', fixed_text)
+                try:
+                    hypothesis_data = json.loads(fixed_text)
+                except:
+                    # Try with strict=False as last resort
+                    decoder = json.JSONDecoder(strict=False)
+                    hypothesis_data = decoder.decode(json_text)
+            else:
+                # Last resort: try with strict=False
+                decoder = json.JSONDecoder(strict=False)
+                hypothesis_data = decoder.decode(json_text)
     
     except json.JSONDecodeError as e:
         # Return the response so we can see what's wrong
