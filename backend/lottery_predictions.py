@@ -82,18 +82,23 @@ def synthesize_lottery_prediction(
                     weight = pattern.get("effect_size", 0.1) * max(0.1, 1.0 - pattern.get("p_value", 1.0))
                     number_scores[num] += weight
 
-        # Get top 5 numbers
+        # Get top 15 candidates (for diversity), then randomly sample 5
         if number_scores:
-            top_numbers = sorted(
-                [num for num, _ in number_scores.most_common(10)],
+            top_candidates = sorted(
+                [num for num, _ in number_scores.most_common(15)],
                 key=lambda x: -number_scores[x]
-            )[:5]
+            )
+            # Randomly sample 5 from top 15 (maintains quality while adding diversity)
+            if len(top_candidates) >= 5:
+                top_numbers = sorted(random.sample(top_candidates, 5))
+            else:
+                top_numbers = sorted(top_candidates)
             # Ensure we have exactly 5
             while len(top_numbers) < 5:
                 candidate = random.randint(1, max_num)
                 if candidate not in top_numbers:
                     top_numbers.append(candidate)
-            numbers = sorted(top_numbers[:5])
+            numbers = sorted(top_numbers)
         else:
             numbers = sorted(random.sample(range(1, max_num + 1), 5))
 
@@ -106,8 +111,10 @@ def synthesize_lottery_prediction(
                 bonus_candidates.append(pattern.get("effect_size", 0.5))
 
         if bonus_candidates:
-            # Weight bonus selection toward middle of range
-            bonus = max(1, min(bonus_max, int(bonus_max * 0.5)))
+            # Randomize bonus around middle of range (40-60% of max) for diversity
+            bonus_mid = int(bonus_max * 0.5)
+            bonus_variance = max(1, bonus_mid // 3)
+            bonus = max(1, min(bonus_max, bonus_mid + random.randint(-bonus_variance, bonus_variance)))
         else:
             bonus = random.randint(1, bonus_max)
 
