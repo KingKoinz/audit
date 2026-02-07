@@ -23,6 +23,104 @@ app.mount("/static", StaticFiles(directory="frontend"), name="static")
 # Background scheduler for daily prediction updates
 scheduler = BackgroundScheduler()
 
+# Cache for autonomous research results (updated by background job every 5 minutes)
+_cached_research_results = {
+    "feeds": ["powerball", "megamillions"],
+    "games": ["Powerball (Test A)", "Mega Millions (Test B)"],
+    "research": [{}, {}],
+    "recent_histories": [[], []],
+    "test_values": [{}, {}],
+    "error": "",
+    "last_update": None,
+    "status": "initializing"
+}
+
+def scheduled_autonomous_research():
+    """Run autonomous research for both games in background (every 5 minutes)"""
+    global _cached_research_results
+    try:
+        print("[SCHEDULER] Running scheduled autonomous research...")
+        from backend.autonomous_research import run_autonomous_research
+        from backend.research_journal import get_recent_research
+        from backend.game_rotation import record_game_tested
+
+        feed_A = 'powerball'
+        feed_B = 'megamillions'
+
+        # Run research for each game
+        resultA = run_autonomous_research(feed_A)
+        resultB = run_autonomous_research(feed_B)
+
+        # Record both games as tested
+        record_game_tested(feed_A)
+        record_game_tested(feed_B)
+
+        # Get recent history for each game
+        historyA = get_recent_research(feed_A, limit=5)
+        historyB = get_recent_research(feed_B, limit=5)
+
+        # Safely extract test values
+        def safe_result(res, idx):
+            if not res or res.get('status') == 'error' or 'error' in res:
+                return {
+                    'status': 'error',
+                    'message': res.get('message', res.get('error', f'AI research unavailable (test {idx+1})')) if res else f'AI research unavailable (test {idx+1})',
+                    'viable': False
+                }
+            return res
+
+        rA = safe_result(resultA, 0)
+        rB = safe_result(resultB, 1)
+
+        test_values_A = {
+            "iteration": rA.get("iteration"),
+            "hypothesis": rA.get("hypothesis"),
+            "test_method": rA.get("test_method"),
+            "custom_test_logic": rA.get("custom_test_logic"),
+            "p_value": rA.get("p_value"),
+            "effect_size": rA.get("effect_size"),
+            "viable": rA.get("viable"),
+            "next_interval_seconds": rA.get("next_interval_seconds"),
+        }
+        test_values_B = {
+            "iteration": rB.get("iteration"),
+            "hypothesis": rB.get("hypothesis"),
+            "test_method": rB.get("test_method"),
+            "custom_test_logic": rB.get("custom_test_logic"),
+            "p_value": rB.get("p_value"),
+            "effect_size": rB.get("effect_size"),
+            "viable": rB.get("viable"),
+            "next_interval_seconds": rB.get("next_interval_seconds"),
+        }
+
+        # Update cache
+        import datetime
+        _cached_research_results = {
+            "feeds": [feed_A, feed_B],
+            "games": ["Powerball (Test A)", "Mega Millions (Test B)"],
+            "research": [rA, rB],
+            "recent_histories": [historyA, historyB],
+            "test_values": [test_values_A, test_values_B],
+            "error": (rA.get('message') if rA.get('status') == 'error' else '') + (rB.get('message') if rB.get('status') == 'error' else ''),
+            "last_update": datetime.datetime.now().isoformat(),
+            "status": "complete"
+        }
+
+        print("[SCHEDULER] Autonomous research update complete")
+        print(f"[SCHEDULER] Test A: {rA.get('hypothesis', 'error')[:50] if rA.get('hypothesis') else rA.get('status', 'unknown')}")
+        print(f"[SCHEDULER] Test B: {rB.get('hypothesis', 'error')[:50] if rB.get('hypothesis') else rB.get('status', 'unknown')}")
+        import sys
+        sys.stdout.flush()
+
+    except Exception as e:
+        print(f"[SCHEDULER] Error in autonomous research: {e}")
+        import traceback
+        traceback.print_exc()
+        import sys
+        sys.stdout.flush()
+        _cached_research_results["status"] = "error"
+        _cached_research_results["error"] = str(e)
+
 def scheduled_predictions_update():
     """Run daily predictions update in background"""
     try:
@@ -38,6 +136,7 @@ def scheduled_predictions_update():
         traceback.print_exc()
 
 # Start scheduler and register cleanup
+scheduler.add_job(scheduled_autonomous_research, 'interval', seconds=300, id='autonomous_research')
 scheduler.add_job(scheduled_predictions_update, 'interval', hours=24, id='daily_predictions')
 scheduler.start()
 atexit.register(lambda: scheduler.shutdown())
@@ -491,84 +590,41 @@ def research(feed_key: str):
 def research_auto():
     """
     Autonomous AI research with automatic game rotation.
-    Alternates between Powerball and Mega Millions to keep results separate.
+    Returns cached results from background scheduler (updates every 5 minutes).
+    No longer blocks on Claude API calls - results are pre-computed.
     """
+    global _cached_research_results
+
     try:
-        from backend.autonomous_research import run_autonomous_research
-        from backend.research_journal import get_recent_research
-        from backend.game_rotation import get_next_game, record_game_tested
+        import copy
+        # Return a copy of the cached results
+        result = copy.deepcopy(_cached_research_results)
 
-        # Test A: Powerball, Test B: Mega Millions (for contrast)
-        feed_A = 'powerball'
-        feed_B = 'megamillions'
+        # If cache is still initializing, also try to run once to populate it
+        if result.get("status") == "initializing":
+            print("[AUTO-RESEARCH] Cache not yet populated, running initial research...")
+            try:
+                scheduled_autonomous_research()
+                result = copy.deepcopy(_cached_research_results)
+            except Exception as init_error:
+                print(f"[AUTO-RESEARCH] Initial research failed: {init_error}")
+                pass  # Return empty cache if initial attempt fails
 
-        print(f"[AUTO-RESEARCH] Running Test A on POWERBALL and Test B on MEGAMILLIONS")
-
-        # Run persistent, independent research for each game
-        resultA = run_autonomous_research(feed_A, test_variant='A') if 'test_variant' in run_autonomous_research.__code__.co_varnames else run_autonomous_research(feed_A)
-        resultB = run_autonomous_research(feed_B, test_variant='B') if 'test_variant' in run_autonomous_research.__code__.co_varnames else run_autonomous_research(feed_B)
-
-        # Record both games as tested (for rotation logic)
-        record_game_tested(feed_A)
-        record_game_tested(feed_B)
-
-        # Get recent history for each game
-        historyA = get_recent_research(feed_A, limit=5)
-        historyB = get_recent_research(feed_B, limit=5)
-
-        # Map feed keys to display names
-        game_names = {
-            "powerball": "Powerball",
-            "megamillions": "Mega Millions"
-        }
-
-        # Always return two research results, with error placeholders if needed
-        def safe_result(res, idx):
-            if not res or res.get('status') == 'error' or 'error' in res:
-                return {
-                    'status': 'error',
-                    'message': res.get('message', res.get('error', f'AI research unavailable (test {idx+1})')) if res else f'AI research unavailable (test {idx+1})',
-                    'viable': False
-                }
-            return res
-
-        rA = safe_result(resultA, 0)
-        rB = safe_result(resultB, 1)
-
-        # Expose key test execution values for both tests
-        test_values_A = {
-            "iteration": rA.get("iteration"),
-            "hypothesis": rA.get("hypothesis"),
-            "test_method": rA.get("test_method"),
-            "custom_test_logic": rA.get("custom_test_logic"),
-            "p_value": rA.get("p_value"),
-            "effect_size": rA.get("effect_size"),
-            "viable": rA.get("viable"),
-            "next_interval_seconds": rA.get("next_interval_seconds"),
-        }
-        test_values_B = {
-            "iteration": rB.get("iteration"),
-            "hypothesis": rB.get("hypothesis"),
-            "test_method": rB.get("test_method"),
-            "custom_test_logic": rB.get("custom_test_logic"),
-            "p_value": rB.get("p_value"),
-            "effect_size": rB.get("effect_size"),
-            "viable": rB.get("viable"),
-            "next_interval_seconds": rB.get("next_interval_seconds"),
-        }
-        return {
-            "feeds": [feed_A, feed_B],
-            "games": [f"{game_names.get(feed_A, feed_A.title())} (Test A)", f"{game_names.get(feed_B, feed_B.title())} (Test B)"],
-            "research": [rA, rB],
-            "recent_histories": [historyA, historyB],
-            "test_values": [test_values_A, test_values_B],
-            "error": (rA.get('message') if rA.get('status') == 'error' else '') + (rB.get('message') if rB.get('status') == 'error' else '')
-        }
+        return result
     except Exception as e:
         import traceback
         tb = traceback.format_exc()
         print(f"[AUTO-RESEARCH ERROR] {tb}")
-        return {"error": str(e), "traceback": tb}
+        return {
+            "error": str(e),
+            "traceback": tb,
+            "status": "error",
+            "feeds": ["powerball", "megamillions"],
+            "games": ["Powerball (Test A)", "Mega Millions (Test B)"],
+            "research": [{}, {}],
+            "recent_histories": [[], []],
+            "test_values": [{}, {}]
+        }
 
 @app.get("/api/hot-numbers/{feed_key}")
 def get_hot_numbers(feed_key: str, window_days: int = 90):
