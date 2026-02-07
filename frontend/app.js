@@ -1,5 +1,5 @@
 const REFRESH_SECONDS = 120;  // 2 minutes with cheap Haiku model
-let DYNAMIC_INTERVAL = 120;  // AI-controlled cadence (starts at 2min)
+let DYNAMIC_INTERVAL = 300;  // AI-controlled cadence (starts at 5min, reduces from ~$35/day to ~$2.50/day)
 
 // Track streaming loops to prevent duplicates
 const streamingLoops = {};
@@ -1360,8 +1360,13 @@ async function refreshAll(){
 
     // Update dynamic interval based on the first AI decision
     if (researchArr[0]?.next_interval_seconds) {
-      DYNAMIC_INTERVAL = researchArr[0].next_interval_seconds;
-      console.log(`AI set next interval: ${DYNAMIC_INTERVAL}s - ${researchArr[0].interval_reasoning}`);
+      // Cap minimum interval at 60s to prevent runaway costs (AI can still control slowdown for efficiency)
+      DYNAMIC_INTERVAL = Math.max(60, researchArr[0].next_interval_seconds);
+      if (researchArr[0].next_interval_seconds < 60) {
+        console.warn(`AI requested ${researchArr[0].next_interval_seconds}s but capped at 60s minimum for cost control`);
+      } else {
+        console.log(`AI set next interval: ${DYNAMIC_INTERVAL}s - ${researchArr[0].interval_reasoning}`);
+      }
     }
 
     // Set up real-time countdown for next research interval
