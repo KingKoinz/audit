@@ -809,6 +809,9 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
         if not history_summary:
             history_summary = "No previous research yet. You're starting fresh!"
 
+        # Calculate current iteration number
+        current_iteration = len(history) + 1
+
         # Build diversity instructions
         diversity_instructions = ""
         if stuck_count >= 3:
@@ -936,7 +939,7 @@ The most valuable finding is not "number 7 is lucky" but "the RNG shows modulo b
     "parameters": {{"digit": 7}} OR {{"low": 100, "high": 150}} OR {{"target_number": 28, "target_day": 2}} OR {{"target_number": 7, "target_month": 7}} OR {{"target_number": 13, "target_season": "winter"}} OR {{}},
   "custom_test_logic": "IF test_method=custom, describe your statistical test methodology in detail",
   "reasoning": "Multi-sentence explanation on a single line. What made you think of this? Why is it interesting? Be entertaining!",
-  "iteration": {iteration},
+  "iteration": {current_iteration},
   "next_interval_seconds": 120,
   "interval_reasoning": "Why this timing? Explain your decision.",
   "creativity_score": 7
