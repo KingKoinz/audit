@@ -1440,8 +1440,6 @@ async function refreshCarousel() {
 
 // Start carousel refresh (every 2 minutes for visual variety)
 setInterval(refreshCarousel, 120000);
-// Call carousel immediately on page load
-refreshCarousel();
 
 // Render two research results stacked in the same panel
 function renderDualResearch(games, researchArr, histories) {
@@ -1600,6 +1598,8 @@ function startLoop(){
   window.lastDrawDateSeen = null;
   // Rotate between panels every 15 seconds
   setInterval(rotatePanels, 15000);
+  // Load carousel data immediately on startup
+  refreshCarousel();
   
   async function loop() {
     try {
