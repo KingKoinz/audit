@@ -832,11 +832,38 @@ def research_carousel():
         pb_entry = powerball_recent[pb_idx] if pb_idx < len(powerball_recent) else {}
         mm_entry = megamillions_recent[mm_idx] if mm_idx < len(megamillions_recent) else {}
 
+        # Transform entries to match renderDualResearch format
+        def format_research_entry(entry):
+            if not entry:
+                return {"status": "error"}
+            findings = entry.get('findings', {})
+            if isinstance(findings, str):
+                try:
+                    import json
+                    findings = json.loads(findings)
+                except:
+                    findings = {}
+            return {
+                "status": "success",
+                "hypothesis": entry.get("hypothesis", ""),
+                "reasoning": entry.get("ai_reasoning", ""),
+                "test_method": entry.get("test_method", ""),
+                "p_value": entry.get("p_value"),
+                "effect_size": entry.get("effect_size"),
+                "viable": entry.get("viable", False),
+                "iteration": entry.get("iteration"),
+                "full_result": findings,
+                "discovery": entry.get("discovery", {})
+            }
+
+        pb_formatted = format_research_entry(pb_entry)
+        mm_formatted = format_research_entry(mm_entry)
+
         # Build carousel result (similar structure to cached results)
         carousel_result = {
             "feeds": ["powerball", "megamillions"],
             "games": ["Powerball (Carousel)", "Mega Millions (Carousel)"],
-            "research": [pb_entry, mm_entry],
+            "research": [pb_formatted, mm_formatted],
             "recent_histories": [powerball_recent[:5], megamillions_recent[:5]],
             "test_values": [
                 {
