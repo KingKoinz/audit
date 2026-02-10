@@ -26,6 +26,124 @@ def clear_analysis_cache():
     _last_analysis_cache.clear()
     return {"status": "success", "message": "Analysis cache cleared"}
 
+def analyze_exploitability(hypothesis: str, p_value: float, effect_size: float,
+                          persistence: int, feed_key: str) -> Dict[str, Any]:
+    """
+    When a discovery reaches VERIFIED+ status, analyze practical exploitability.
+    Returns educational analysis about whether/how the pattern could be used.
+    """
+    if p_value > 0.01 or effect_size < 0.2 or persistence < 3:
+        return {}  # Not verified, skip exploitability analysis
+
+    # Game-specific odds
+    if feed_key.lower() == 'powerball':
+        total_numbers = 69
+        draws_per_game = 5
+        jackpot_odds = 292_201_338
+        game_name = "Powerball"
+        prize_examples = {
+            5: "Jackpot (varies)",
+            4: "$50k-100k",
+            3: "$100",
+            2: "$7"
+        }
+    else:  # megamillions
+        total_numbers = 70
+        draws_per_game = 5
+        jackpot_odds = 302_575_350
+        game_name = "Mega Millions"
+        prize_examples = {
+            5: "Jackpot (varies)",
+            4: "$10k-50k",
+            3: "$200",
+            2: "$10"
+        }
+
+    # Detect pattern type
+    pattern_type = "unknown"
+    if "benford" in hypothesis.lower() or "leading" in hypothesis.lower():
+        pattern_type = "distribution_bias"
+        specific_numbers = None
+    elif "digit sum" in hypothesis.lower() or "sum" in hypothesis.lower():
+        pattern_type = "specific_numbers"
+        # Try to extract which numbers (e.g., digit sum 13 = 49, 58, 67 for Powerball)
+        specific_numbers = extract_specific_numbers(hypothesis, feed_key)
+    elif "consecutive" in hypothesis.lower() or "pairs" in hypothesis.lower():
+        pattern_type = "relationship_bias"
+        specific_numbers = None
+
+    # Generate exploitability assessment
+    assessment = {
+        "pattern_type": pattern_type,
+        "verified": True,
+        "persistence_level": min(persistence, 10),  # Cap at 10
+        "effect_size_percent": round(effect_size * 100, 1),
+        "legendary_progress": f"{persistence}/10"
+    }
+
+    # Pattern-specific analysis
+    if pattern_type == "distribution_bias":
+        assessment["exploitability"] = "LOW"
+        assessment["reason"] = "Distribution bias (like Benford's Law) doesn't predict specific numbers"
+        assessment["real_talk"] = f"You know the distribution is biased, but you still need to pick the right {draws_per_game} numbers from {total_numbers}. Odds unchanged."
+        assessment["expected_roi"] = "-99%+ (unbeatable)"
+
+    elif pattern_type == "specific_numbers" and specific_numbers:
+        assessment["exploitability"] = "MODERATE"
+        assessment["targeted_numbers"] = specific_numbers
+        assessment["num_hot_numbers"] = len(specific_numbers)
+
+        # Calculate boost
+        base_prob = draws_per_game / total_numbers
+        boosted_prob = base_prob * (1 + effect_size)
+        assessment["probability_boost"] = f"From {base_prob:.1%} to {boosted_prob:.1%}"
+
+        # Expected value for matching these numbers
+        expected_matches_per_draw = len(specific_numbers) * boosted_prob
+        assessment["expected_hot_numbers_per_draw"] = round(expected_matches_per_draw, 2)
+
+        # ROI estimate for focusing on these numbers
+        if expected_matches_per_draw > 0.5:
+            roi_estimate = (expected_matches_per_draw * 5) - 100  # Rough ROI
+            assessment["expected_roi"] = "-85% to -90% (still unbeatable)"
+        else:
+            assessment["expected_roi"] = "-95%+ (marginal advantage)"
+
+        assessment["real_talk"] = f"You can target {len(specific_numbers)} numbers with {effect_size*100:.1f}% higher frequency. Still need luck. Expected value: NEGATIVE."
+
+    else:
+        assessment["exploitability"] = "UNKNOWN"
+        assessment["real_talk"] = "Pattern requires deeper analysis"
+
+    # Universal truth for all discoveries
+    assessment["bottom_line"] = {
+        "can_beat_lottery": False,
+        "reason": "Statistical anomaly ≠ predictive power. Lottery math is unbeatable.",
+        "best_case": "Short-term profit if pattern exists & lottery hasn't fixed it yet",
+        "likely_case": "Pattern disappears, lottery adjusts, or math works against you",
+        "educational_value": "HIGH - Real mechanical bias detected. Lottery operator should investigate."
+    }
+
+    return assessment
+
+def extract_specific_numbers(hypothesis: str, feed_key: str) -> List[int]:
+    """Extract specific numbers from hypothesis (e.g., digit sum 13 → 49, 58, 67)"""
+    numbers = []
+
+    if "digit sum" in hypothesis.lower():
+        # Extract the target sum
+        import re
+        match = re.search(r'digit sum.*?(\d+)', hypothesis, re.IGNORECASE)
+        if match:
+            target_sum = int(match.group(1))
+            max_num = 69 if feed_key.lower() == 'powerball' else 70
+
+            for n in range(1, max_num + 1):
+                if sum(int(d) for d in str(n)) == target_sum:
+                    numbers.append(n)
+
+    return numbers[:10]  # Return up to 10 most relevant numbers
+
 def _track_pattern(feed_key: str, analysis: str, severity: str, p_value: float):
     """Track pattern over time to detect persistence or vanishing."""
     if feed_key not in _pattern_history:
@@ -206,7 +324,7 @@ Remember: Real deviations are RARE. Most "patterns" are fake. When they vanish, 
         # Track pattern for persistence detection
         chi_p = stats.get('chi_square', {}).get('p', 1.0)
         _track_pattern(feed_key, analysis_text, severity, chi_p)
-        
+
         result = {
             "analysis": analysis_text,
             "status": "success",
@@ -222,10 +340,24 @@ Remember: Real deviations are RARE. Most "patterns" are fake. When they vanish, 
             "cached": False,
             "trigger": "new_draw_detected"
         }
-        
+
+        # For high-severity discoveries (CANDIDATE anomalies), add exploitability analysis
+        if severity == "high" and chi_p < 0.01:
+            # Extract hypothesis from analysis or use a generic one
+            hypothesis = f"Pattern detected with p={chi_p:.2e}"
+            exploitability = analyze_exploitability(
+                hypothesis,
+                chi_p,
+                0.3,  # Conservative effect size estimate
+                3,    # Minimum persistence for CANDIDATE
+                feed_key
+            )
+            if exploitability:
+                result["exploitability_analysis"] = exploitability
+
         # Cache this analysis
         _last_analysis_cache[cache_key] = result.copy()
-        
+
         return result
         
     except Exception as e:

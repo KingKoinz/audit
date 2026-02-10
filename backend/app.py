@@ -677,6 +677,51 @@ def research_auto():
             "test_values": [{}, {}]
         }
 
+@app.get("/api/exploitability/{feed_key}")
+def exploitability_analysis(feed_key: str, p_value: float = 0.0, effect_size: float = 0.3, persistence: int = 3):
+    """
+    Analyze exploitability of a discovered pattern.
+    For VERIFIED discoveries, shows whether/how the pattern could be used.
+    Includes practical breakdown of odds, ROI, and real-world applicability.
+    """
+    track_activity()
+    from backend.ai_analysis import analyze_exploitability
+
+    if p_value <= 0:
+        # Get latest stats from research journal if not provided
+        from backend.research_journal import get_recent_research
+        recent = get_recent_research(feed_key, limit=1)
+        if recent:
+            p_value = recent[0].get('p_value', 0.01)
+            effect_size = abs(recent[0].get('effect_size', 0.3))
+            # Estimate persistence from discovery level
+            discovery = recent[0].get('discovery', {})
+            if discovery.get('level') == 'VERIFIED':
+                persistence = 3
+            elif discovery.get('level') == 'LEGENDARY':
+                persistence = 10
+            else:
+                persistence = 1
+
+    analysis = analyze_exploitability(
+        hypothesis="Pattern with statistical significance detected",
+        p_value=p_value,
+        effect_size=effect_size,
+        persistence=persistence,
+        feed_key=feed_key
+    )
+
+    return {
+        "feed": feed_key,
+        "p_value": p_value,
+        "effect_size": effect_size,
+        "persistence": persistence,
+        "exploitability": analysis if analysis else {
+            "status": "insufficient_data",
+            "message": "Pattern does not meet VERIFIED threshold"
+        }
+    }
+
 @app.get("/api/research-carousel")
 def research_carousel():
     """
