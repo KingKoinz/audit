@@ -1586,7 +1586,6 @@ function renderResearchBlock(r, dualMode=false) {
     </div>
   `;
 }
-}
 
 function startLoop(){
   // Rotate myths immediately
