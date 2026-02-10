@@ -126,6 +126,107 @@ def analyze_exploitability(hypothesis: str, p_value: float, effect_size: float,
 
     return assessment
 
+def analyze_discovery_premium(feed_key: str, hypothesis: str, p_value: float,
+                             effect_size: float, persistence: int,
+                             stats: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    PREMIUM ANALYSIS for VERIFIED discoveries - uses better model (Sonnet).
+    Called when discovery reaches VERIFIED+ and needs full dramatic breakdown.
+    Includes: statistical explanation + exploitability + dramatic interpretation.
+    """
+    try:
+        import anthropic
+    except ImportError:
+        return {"status": "error", "message": "Claude API not available"}
+
+    api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
+        return {"status": "error", "message": "ANTHROPIC_API_KEY not set"}
+
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+
+        # Build rich context for Sonnet analysis
+        hot_nums = str(stats.get('hot', [])[:5])
+        cold_nums = str(stats.get('cold', [])[:5])
+        chi_p = stats.get('chi_square', {}).get('p', p_value)
+
+        prompt = f"""🚨 VERIFIED DISCOVERY ALERT - PREMIUM ANALYSIS 🚨
+
+A statistically VERIFIED anomaly has been discovered that persisted through {persistence} independent verification tests.
+
+DISCOVERY DETAILS:
+- Feed: {feed_key.upper()}
+- Hypothesis: {hypothesis}
+- P-Value: {p_value:.2e} (extraordinarily significant)
+- Effect Size: {effect_size*100:.1f}% deviation from expected
+- Persistence: {persistence} consecutive verification tests
+- Hot numbers: {hot_nums}
+- Cold numbers: {cold_nums}
+
+YOUR TASK - Provide a DRAMATIC, COMPREHENSIVE breakdown that includes:
+
+1. **THE DISCOVERY (What makes this real?)**
+   - Why p={p_value:.2e} is essentially impossible by chance
+   - What {effect_size*100:.1f}% deviation means in practical terms
+   - Why {persistence} tests passing proves it's not a fluke
+
+2. **THE IMPLICATION (What does this mean?)**
+   - What mechanical/systematic bias this suggests
+   - Why lottery operators should care
+   - How rare this finding actually is
+
+3. **THE REALITY CHECK (Can you profit?)**
+   - Honest assessment: Does this pattern help you win?
+   - What would need to be true for this to be exploitable
+   - Why statistics ≠ prediction in lotteries
+
+4. **THE NARRATIVE (Why is this compelling?)**
+   - What's the story here? (mechanical failure? human bias? rare event?)
+   - How would a conspiracy theorist interpret this?
+   - How would a statistician interpret this?
+
+5. **THE INVESTIGATION (What's next?)**
+   - What the lottery operator should do
+   - What patterns would be even MORE alarming
+   - Whether this could be accidental or deliberate
+
+TONE: Professional but dramatic. Make it CLEAR this is a genuine statistical anomaly,
+but ALSO make it clear that anomalies don't equal profits. Educational and compelling.
+Maximum 2 minutes of reading time (~400-500 words).
+"""
+
+        message = client.messages.create(
+            model="claude-sonnet-4-5-20250929",  # Premium model for deeper analysis
+            max_tokens=1500,
+            temperature=0.9,  # More dramatic/engaging
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        analysis_text = message.content[0].text
+
+        return {
+            "status": "success",
+            "premium_analysis": analysis_text,
+            "alert_level": "CRITICAL",
+            "severity_indicator": "🚨🚨🚨",
+            "requires_attention": True,
+            "discovery_metadata": {
+                "feed_key": feed_key,
+                "p_value": p_value,
+                "effect_size": effect_size,
+                "persistence": persistence,
+                "hypothesis": hypothesis,
+                "model_used": "claude-sonnet-4-5-20250929"
+            }
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Premium analysis failed: {str(e)}"
+        }
+
 def extract_specific_numbers(hypothesis: str, feed_key: str) -> List[int]:
     """Extract specific numbers from hypothesis (e.g., digit sum 13 → 49, 58, 67)"""
     numbers = []

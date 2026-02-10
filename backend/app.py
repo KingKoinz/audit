@@ -722,6 +722,82 @@ def exploitability_analysis(feed_key: str, p_value: float = 0.0, effect_size: fl
         }
     }
 
+@app.get("/api/alerts/verified")
+def verified_discoveries_alert():
+    """
+    ALERT SCREEN: Returns only VERIFIED+ discoveries for dramatic presentation.
+    Triggers when persistence reaches VERIFIED level (3+ tests).
+    Includes full exploitability breakdown and premium analysis.
+    """
+    track_activity()
+    from backend.research_journal import get_recent_research
+    from backend.ai_analysis import analyze_discovery_premium
+    import datetime
+
+    alerts = []
+
+    for feed_key in ['powerball', 'megamillions']:
+        recent = get_recent_research(feed_key, limit=100)
+
+        for entry in recent:
+            discovery = entry.get('discovery', {})
+            level = discovery.get('level')
+
+            # Only alert on VERIFIED+ discoveries
+            if level not in ('VERIFIED', 'LEGENDARY'):
+                continue
+
+            # Extract key data
+            p_value = entry.get('p_value', 1.0)
+            effect_size = abs(entry.get('effect_size', 0))
+            hypothesis = entry.get('hypothesis', 'Unknown pattern')
+            persistence = entry.get('persistence_count', 1)
+            findings = entry.get('findings', {})
+
+            if isinstance(findings, str):
+                try:
+                    import json
+                    findings = json.loads(findings)
+                except:
+                    findings = {}
+
+            # Get premium analysis
+            premium = analyze_discovery_premium(
+                feed_key=feed_key,
+                hypothesis=hypothesis,
+                p_value=p_value,
+                effect_size=effect_size,
+                persistence=persistence,
+                stats=findings
+            )
+
+            alert_item = {
+                "discovery_id": entry.get('id'),
+                "timestamp": entry.get('timestamp'),
+                "feed_key": feed_key,
+                "level": level,
+                "hypothesis": hypothesis,
+                "p_value": p_value,
+                "effect_size": effect_size,
+                "persistence": persistence,
+                "alert_level": "CRITICAL" if level == "LEGENDARY" else "HIGH",
+                "severity_emoji": "👑" if level == "LEGENDARY" else "🚨",
+                "premium_analysis": premium.get('premium_analysis'),
+                "findings": findings,
+                "requires_immediate_attention": True
+            }
+            alerts.append(alert_item)
+
+    # Sort by severity (LEGENDARY first, then by date)
+    alerts.sort(key=lambda x: (x['level'] != 'LEGENDARY', x['timestamp']), reverse=True)
+
+    return {
+        "alert_count": len(alerts),
+        "discoveries": alerts,
+        "alert_status": "ACTIVE" if alerts else "QUIET",
+        "timestamp": datetime.datetime.now().isoformat()
+    }
+
 @app.get("/api/research-carousel")
 def research_carousel():
     """
