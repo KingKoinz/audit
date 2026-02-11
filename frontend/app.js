@@ -1069,57 +1069,6 @@ function plotFrequencyBar(h) {
   return;
 }
 
-function plotFrequency(h) {
-  const x = [];
-  const y = [];
-
-  if (h.counts && h.min && h.max) {
-    for(let i = h.min; i <= h.max; i++){
-      x.push(i);
-      y.push(h.counts[i - h.min]);
-    }
-  }
-
-  const data = [{
-    type: 'bar',
-    x,
-    y,
-    marker: {
-      color: y,
-      colorscale: [
-        [0, '#1a0505'],
-        [0.3, '#5a0000'],
-        [0.5, '#b91c1c'],
-        [0.7, '#dc2626'],
-        [0.85, '#f97316'],
-        [1, '#fbbf24']
-      ],
-      line: {color: '#000', width: 1}
-    },
-    hovertemplate: '<b>Number %{x}</b><br>Count: %{y}<extra></extra>'
-  }];
-
-  const layout = {
-    margin: {l: 60, r: 30, t: 10, b: 50},
-    paper_bgcolor: 'rgba(0,0,0,0)',
-    plot_bgcolor: '#0a0a0a',
-    xaxis: {
-      title: {text: 'Number', font: {size: 13, color: '#e8ecf3'}},
-      gridcolor: '#1a1a1a',
-      tickfont: {size: 10, color: '#aaa'},
-      dtick: 5
-    },
-    yaxis: {
-      title: {text: 'Frequency', font: {size: 13, color: '#e8ecf3'}},
-      gridcolor: '#1a1a1a',
-      tickfont: {size: 10, color: '#aaa'}
-    },
-    font: {color: '#e8ecf3', family: 'ui-sans-serif, system-ui'}
-  };
-
-  Plotly.react('chartMain', data, layout, {displayModeBar:false, responsive:true});
-}
-
 function plotHistogram(b){
   const x = [];
   const y = [];
