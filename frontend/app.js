@@ -1536,6 +1536,54 @@ function renderResearchBlock(r, dualMode=false) {
   `;
 }
 
+// Fetch and display AI lottery predictions
+async function displayLotteryPredictions() {
+  const container = document.getElementById('lotteryPredictionContainer');
+  if (!container) {
+    console.log('[LOTTERY] Container not found');
+    return;
+  }
+
+  try {
+    const feed = document.getElementById('feedSelect').value || 'powerball';
+    console.log('[LOTTERY] Fetching prediction for:', feed);
+    const res = await fetch(`/api/lottery-prediction/${feed}`);
+    const data = await res.json();
+    console.log('[LOTTERY] Response:', data);
+
+    if (!data.prediction) {
+      console.log('[LOTTERY] No prediction in response');
+      container.innerHTML = '';
+      return;
+    }
+
+    const pred = data.prediction;
+    const gameInfo = {
+      powerball: { name: 'Powerball', ballClass: 'powerball', mainClass: 'powerball-main', bonusClass: 'powerball-bonus' },
+      megamillions: { name: 'Mega Millions', ballClass: 'megamillions', mainClass: 'megamillions-main', bonusClass: 'megamillions-bonus' }
+    };
+
+    const game = gameInfo[feed] || gameInfo.powerball;
+    let ballsHtml = pred.numbers.map(n => `<div class="lottery-ball ${game.mainClass}">${n}</div>`).join('');
+    if (pred.bonus) {
+      ballsHtml += `<div class="lottery-ball ${game.bonusClass}">${pred.bonus}</div>`;
+    }
+
+    console.log('[LOTTERY] Generated HTML:', ballsHtml);
+    container.innerHTML = `
+      <div class="lottery-prediction-container">
+        <div class="lottery-title">🎰 AI Prediction (Based on CANDIDATE Patterns)</div>
+        <div class="lottery-balls-container">${ballsHtml}</div>
+        <div class="lottery-reasoning">📊 ${pred.reasoning}</div>
+        <div class="lottery-disclaimer">⚠️ Research analysis only. Not gambling advice. Each draw is independent.</div>
+      </div>
+    `;
+    console.log('[LOTTERY] Rendered successfully');
+  } catch (err) {
+    console.error('[LOTTERY] Error:', err);
+  }
+}
+
 function startLoop(){
   // Rotate myths immediately
   rotateMyths();
