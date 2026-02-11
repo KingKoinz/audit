@@ -1069,10 +1069,10 @@ function plotFrequencyBar(h) {
   return;
 }
 
-function plotHistogram(h) {
+function plotFrequency(h) {
   const x = [];
   const y = [];
-  
+
   if (h.counts && h.min && h.max) {
     for(let i = h.min; i <= h.max; i++){
       x.push(i);
@@ -1082,7 +1082,7 @@ function plotHistogram(h) {
 
   const data = [{
     type: 'bar',
-    x, 
+    x,
     y,
     marker: {
       color: y,
@@ -1117,7 +1117,7 @@ function plotHistogram(h) {
     font: {color: '#e8ecf3', family: 'ui-sans-serif, system-ui'}
   };
 
-  Plotly.react('chartFreq', data, layout, {displayModeBar:false, responsive:true});
+  Plotly.react('chartMain', data, layout, {displayModeBar:false, responsive:true});
 }
 
 function plotHistogram(b){
